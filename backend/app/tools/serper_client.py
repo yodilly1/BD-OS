@@ -20,6 +20,21 @@ class SerperClient:
         """
         type can be 'search', 'news', 'places', etc.
         """
+        # --- MOCK IMPLEMENTATION ---
+        if self.api_key == "mock-key":
+            print(f"[Serper] MOCK: Simulating search for '{query}'")
+            if "site:linkedin.com/in/" in query:
+                parts = query.replace("site:linkedin.com/in/", "").split()
+                first_name = parts[0]
+                last_name = parts[1]
+                return {
+                    "organic": [{
+                        "link": f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower()}"
+                    }]
+                }
+            return {"organic": []}
+        # --- END MOCK ---
+
         url = f"https://google.serper.dev/{type}" if type != "search" else self.base_url
         payload = json.dumps({"q": query})
         
