@@ -38,40 +38,42 @@ class ProspectorAgent:
         response_text = await self.gemini.generate_content(prompt)
         cleaned_response = response_text.replace("```json", "").replace("```", "").strip()
         
-        companies = []
-        with Session(engine) as session:
-            try:
-                data = json.loads(cleaned_response)
-                if not isinstance(data, list):
-                    print(f"ERROR: Gemini response is not a list: {type(data)}")
+        def save_companies_to_db(json_response):
+            companies = []
+            with Session(engine) as session:
+                try:
+                    data = json.loads(json_response)
+                    if not isinstance(data, list):
+                        print(f"ERROR: Gemini response is not a list: {type(data)}")
+                    
+                    for i, item in enumerate(data):
+                        name = item.get("name")
+                        if not name:
+                            continue
+
+                        existing = session.exec(select(Company).where(Company.name == name)).first()
+                        if existing:
+                            companies.append(existing)
+                            continue
+
+                        company = Company(
+                            name=item.get("name"),
+                            domain=item.get("domain", ""),
+                            description=item.get("description")
+                        )
+                        session.add(company)
+                        session.commit()
+                        session.refresh(company)
+                        companies.append(company)
+                except Exception as e:
+                    print(f"Error parsing Gemini response or saving to DB: {e}")
                 
-                for i, item in enumerate(data):
-                    name = item.get("name")
-                    if not name:
-                        continue
-
-                    existing = session.exec(select(Company).where(Company.name == name)).first()
-                    if existing:
-                        companies.append(existing)
-                        continue
-
-                    company = Company(
-                        name=item.get("name"),
-                        domain=item.get("domain", ""),
-                        description=item.get("description")
-                    )
-                    session.add(company)
-                    session.commit()
+                for company in companies:
                     session.refresh(company)
-                    companies.append(company)
-            except Exception as e:
-                print(f"Error parsing Gemini response or saving to DB: {e}")
-            
-            for company in companies:
-                session.refresh(company)
-                session.expunge(company)
-            
-        return companies
+                    session.expunge(company)
+            return companies
+
+        return await asyncio.to_thread(save_companies_to_db, cleaned_response)
 
     async def find_prospects(self, company_id: int, role_description: str) -> List[Prospect]:
         """
@@ -176,9 +178,9 @@ class ProspectorAgent:
                         all_companies.append(attached_company)
                         seen_domains.add(attached_company.domain)
 
-            async def process_company_prospects(company):
+            # 1. Gather all data concurrently (No DB access here)
+            async def gather_company_data(company):
                 if not company.domain: return []
-
                 try:
                     employees = await self.leadmagic.find_employees(company.domain)
                 except Exception as e:
@@ -191,39 +193,47 @@ class ProspectorAgent:
                 async def process_candidate(emp):
                     first_name, last_name = emp.get("first_name", ""), emp.get("last_name", "")
                     linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
-                    return {**emp, "linkedin_url": linkedin_url}
+                    return {**emp, "linkedin_url": linkedin_url, "company_id": company.id}
 
-                enriched_candidates = await asyncio.gather(*[process_candidate(c) for c in candidates])
-                
-                prospects = []
-                for emp in enriched_candidates:
-                    if not emp or not emp.get("linkedin_url"): continue
+                return await asyncio.gather(*[process_candidate(c) for c in candidates])
 
-                    existing = session.exec(select(Prospect).where(Prospect.linkedin_url == emp["linkedin_url"])).first()
-                    if existing:
-                        prospects.append(existing)
-                    else:
-                        prospect = Prospect(
-                            first_name=emp.get("first_name"), last_name=emp.get("last_name"),
-                            title=emp.get("title"), linkedin_url=emp.get("linkedin_url"),
-                            company_id=company.id, status="New"
-                        )
-                        session.add(prospect)
-                        prospects.append(prospect)
-                return prospects
-
-            tasks = [process_company_prospects(c) for c in all_companies]
+            # Execute gathering
+            tasks = [gather_company_data(c) for c in all_companies]
             results_nested = await asyncio.gather(*tasks)
-
-            all_prospects = [prospect for sublist in results_nested for prospect in sublist]
-
-            session.commit()
             
-            final_prospects = all_prospects[:MAX_TOTAL_PROSPECTS]
-            
-            for p in final_prospects:
-                session.refresh(p)
-                session.expunge(p)
+            # Flatten results
+            all_prospect_data = [p for sublist in results_nested for p in sublist if p and p.get("linkedin_url")]
+
+            # 2. Save to DB sequentially (in a separate thread to avoid blocking event loop)
+            def save_to_db(prospect_data_list):
+                saved_prospects = []
+                with Session(engine) as session:
+                    for p_data in prospect_data_list:
+                        if len(saved_prospects) >= MAX_TOTAL_PROSPECTS: break
+                        
+                        existing = session.exec(select(Prospect).where(Prospect.linkedin_url == p_data["linkedin_url"])).first()
+                        if existing:
+                            saved_prospects.append(existing)
+                        else:
+                            prospect = Prospect(
+                                first_name=p_data.get("first_name"), 
+                                last_name=p_data.get("last_name"),
+                                title=p_data.get("title"), 
+                                linkedin_url=p_data.get("linkedin_url"),
+                                company_id=p_data.get("company_id"), 
+                                status="New"
+                            )
+                            session.add(prospect)
+                            saved_prospects.append(prospect)
+                    
+                    session.commit()
+                    
+                    for p in saved_prospects:
+                        session.refresh(p)
+                        session.expunge(p)
+                return saved_prospects
+
+            final_prospects = await asyncio.to_thread(save_to_db, all_prospect_data)
                 
             return final_prospects
 

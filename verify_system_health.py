@@ -81,7 +81,7 @@ async def test_deep_search_job():
                 
                 await asyncio.sleep(2)
             except Exception as e:
-                print(f"❌ Polling Error: {e}")
+                print(f"❌ Polling Error: {repr(e)}")
                 return False
         
         print("❌ FAILED (Timeout polling job)")

@@ -29,7 +29,8 @@ class GeminiClient:
             return ""
         # --- END MOCK ---
         try:
-            response = self.model.generate_content(prompt)
+            import asyncio
+            response = await asyncio.to_thread(self.model.generate_content, prompt)
             return response.text
         except Exception as e:
             print(f"Error generating content with Gemini: {e}")
