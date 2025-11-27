@@ -107,6 +107,39 @@ class LeadMagicClient:
             except httpx.HTTPStatusError as e:
                 print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
                 return []
+                return []
             except Exception as e:
                 print(f"[LeadMagic] Error: {e}")
                 return []
+
+    async def find_person_by_role(self, domain: str, role: str) -> dict:
+        """
+        Finds a specific person at a company matching a role/title.
+        Uses the /role-finder endpoint.
+        """
+        url = f"{self.base_url}/role-finder"
+        payload = {
+            "company_domain": domain,
+            "job_title": role
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                # print(f"[LeadMagic] Searching for {role} at {domain}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("message") == "Role Found":
+                    # Normalize to match employee-finder format
+                    return {
+                        "first_name": data.get("first_name"),
+                        "last_name": data.get("last_name"),
+                        "title": role, # API doesn't return title, so we use the requested role
+                        "linkedin_url": data.get("profile_url"),
+                        "company": data.get("company_name")
+                    }
+                return {}
+            except Exception as e:
+                # print(f"[LeadMagic] Error finding role {role}: {e}")
+                return {}

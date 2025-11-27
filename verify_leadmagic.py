@@ -11,12 +11,16 @@ BASE_URL = "https://api.leadmagic.io"
 
 async def test_employee_finder(domain):
     print(f"\n--- Testing Employee Finder for {domain} ---")
-    url = f"{BASE_URL}/employee-finder"
+    url = f"{BASE_URL}/role-finder"
     headers = {
         "X-API-Key": API_KEY,
         "Content-Type": "application/json"
     }
-    payload = {"company_domain": domain}
+    # Test with job_title parameter
+    payload = {
+        "company_domain": domain,
+        "job_title": "finance" 
+    }
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:

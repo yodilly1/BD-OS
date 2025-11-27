@@ -50,7 +50,7 @@ async def test_deep_search_job():
                 "industry": "FinTech",
                 "size": "1000+ employees",
                 "keywords": "payments",
-                "titles": ["Engineer"],
+                "titles": ["finance", "controller", "cfo"],
                 "limit": 1
             }
             resp = await client.post(f"{BASE_URL}/api/prospect/deep-search", json=payload)

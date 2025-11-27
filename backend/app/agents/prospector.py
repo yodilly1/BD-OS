@@ -45,7 +45,7 @@ class ProspectorAgent:
                     data = json.loads(json_response)
                     if not isinstance(data, list):
                         print(f"ERROR: Gemini response is not a list: {type(data)}")
-                    
+
                     for i, item in enumerate(data):
                         name = item.get("name")
                         if not name:
@@ -181,16 +181,36 @@ class ProspectorAgent:
             # 1. Gather all data concurrently (No DB access here)
             async def gather_company_data(company):
                 if not company.domain: return []
-                try:
-                    employees = await self.leadmagic.find_employees(company.domain)
-                except Exception as e:
-                    print(f"Error finding employees for {company.name}: {e}")
-                    return []
+                
+                # If titles are provided, use role-finder for better accuracy
+                if titles:
+                    # print(f"Searching for roles {titles} at {company.name}")
+                    tasks = [self.leadmagic.find_person_by_role(company.domain, title) for title in titles]
+                    results = await asyncio.gather(*tasks)
+                    # Filter out empty results and duplicates
+                    seen_urls = set()
+                    candidates = []
+                    for res in results:
+                        if res and res.get("linkedin_url") and res.get("linkedin_url") not in seen_urls:
+                            candidates.append(res)
+                            seen_urls.add(res.get("linkedin_url"))
+                else:
+                    # Fallback to general employee search
+                    try:
+                        employees = await self.leadmagic.find_employees(company.domain)
+                    except Exception as e:
+                        print(f"Error finding employees for {company.name}: {e}")
+                        return []
+                    candidates = employees[:MAX_PROSPECTS_PER_COMPANY]
 
-                candidates = [emp for emp in employees if any(t.lower() in emp.get("title", "").lower() for t in titles)]
                 candidates = candidates[:MAX_PROSPECTS_PER_COMPANY]
 
                 async def process_candidate(emp):
+                    # If we already have linkedin_url (from role-finder), use it
+                    if emp.get("linkedin_url"):
+                        return {**emp, "company_id": company.id}
+                    
+                    # Otherwise find it (for generic search)
                     first_name, last_name = emp.get("first_name", ""), emp.get("last_name", "")
                     linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
                     return {**emp, "linkedin_url": linkedin_url, "company_id": company.id}
