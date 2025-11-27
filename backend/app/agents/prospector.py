@@ -238,7 +238,6 @@ class ProspectorAgent:
         domain = url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
 
         with Session(engine) as session:
-            # 1. Find or Create Company
             company = session.exec(select(Company).where(Company.domain.contains(domain))).first()
             if not company:
                 name = domain.split(".")[0].capitalize()
@@ -257,8 +256,7 @@ class ProspectorAgent:
             if not employees:
                 return []
 
-            # 3. Find LinkedIn URLs in parallel
-            company_name_for_search = company.name  # Use before potential expunge
+            company_name_for_search = company.name
             async def process_candidate(emp):
                 first_name = emp.get("first_name", "")
                 last_name = emp.get("last_name", "")
@@ -269,13 +267,12 @@ class ProspectorAgent:
             
             enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in employees])
 
-            # 4. Create Prospect objects within the session
             new_prospects = []
             for emp in enriched_candidates:
                 if not emp: continue
 
                 linkedin_url = emp.get("linkedin_url", "")
-                if not linkedin_url: continue # Skip if no LinkedIn URL
+                if not linkedin_url: continue
 
                 existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first()
                 if existing:
@@ -287,7 +284,7 @@ class ProspectorAgent:
                     last_name=emp.get("last_name", ""),
                     title=emp.get("title", ""),
                     linkedin_url=linkedin_url,
-                    company_id=company.id, # company is attached to this session
+                    company_id=company.id,
                     status="New"
                 )
                 session.add(prospect)
@@ -295,7 +292,6 @@ class ProspectorAgent:
 
             session.commit()
 
-            # 5. Refresh and expunge all prospects before returning
             for p in new_prospects:
                 session.refresh(p)
                 session.expunge(p)
