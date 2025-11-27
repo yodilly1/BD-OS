@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from typing import List
 import json
 import re
+import asyncio
 
 class ProspectorAgent:
     def __init__(self):
@@ -194,7 +195,6 @@ class ProspectorAgent:
         print(f"DEBUG: Found {len(all_companies)} unique companies.")
         
         all_prospects = []
-        import asyncio
 
         # 2. Find People for each company via LeadMagic (PARALLEL)
         async def process_company(company):
@@ -269,34 +269,24 @@ class ProspectorAgent:
         return all_prospects[:MAX_TOTAL_PROSPECTS]
 
     async def url_prospecting_flow(self, url: str) -> List[Prospect]:
-        try:
-            """
-            Executes a prospecting workflow based on a company URL.
-            1. Identify/Create company from URL.
-            2. Use LeadMagic to find employees.
-            3. Find LinkedIn URLs.
-            4. Save prospects to DB.
-            """
-            # SAFEGUARDS
-            MAX_PROSPECTS = 10
-            
-            # Clean URL to get domain
-            domain = url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
-            
-            with Session(engine) as session:
-                # 1. Find or Create Company
-                company = session.exec(select(Company).where(Company.domain.contains(domain))).first()
-                if not company:
-                    # Try to infer name from domain
-                    name = domain.split(".")[0].capitalize()
-                    company = Company(name=name, domain=domain, description=f"Company at {domain}")
-                    session.add(company)
-                    session.commit()
-                    session.refresh(company)
-                
-                # Expunge company so we can use it outside session if needed (though we have ID)
+        """
+        Executes a prospecting workflow based on a company URL.
+        Refactored to use a single session and handle detached instances correctly.
+        """
+        # SAFEGUARDS
+        MAX_PROSPECTS = 10
+
+        domain = url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
+
+        with Session(engine) as session:
+            # 1. Find or Create Company
+            company = session.exec(select(Company).where(Company.domain.contains(domain))).first()
+            if not company:
+                name = domain.split(".")[0].capitalize()
+                company = Company(name=name, domain=domain, description=f"Company at {domain}")
+                session.add(company)
+                session.commit()
                 session.refresh(company)
-                session.expunge(company)
 
             # 2. Find Employees via LeadMagic
             try:
@@ -305,61 +295,51 @@ class ProspectorAgent:
                 print(f"Error searching employees for {domain}: {e}")
                 return []
             
-            # Limit employees
             employees = employees[:MAX_PROSPECTS]
-            
-            new_prospects = []
-            import asyncio
-            
-            # Parallel LinkedIn Lookup
+            if not employees:
+                return []
+
+            # 3. Find LinkedIn URLs in parallel
+            company_name_for_search = company.name  # Use before potential expunge
             async def process_candidate(emp):
                 first_name = emp.get("first_name", "")
                 last_name = emp.get("last_name", "")
                 if not first_name or not last_name:
                     return None
-                linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
+                linkedin_url = await self._find_linkedin_url(first_name, last_name, company_name_for_search)
                 return {**emp, "linkedin_url": linkedin_url}
-
-            if not employees:
-                return []
-
-            enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in employees])
             
+            enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in employees])
+
+            # 4. Create Prospect objects within the session
+            new_prospects = []
             for emp in enriched_candidates:
                 if not emp: continue
-                
-                first_name = emp.get("first_name", "")
-                last_name = emp.get("last_name", "")
-                title = emp.get("title", "")
+
                 linkedin_url = emp.get("linkedin_url", "")
+                if not linkedin_url: continue # Skip if no LinkedIn URL
 
-                with Session(engine) as session:
-                    # Check if prospect exists
-                    existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first() if linkedin_url else None
-                    
-                    if existing:
-                        session.refresh(existing)
-                        session.expunge(existing)
-                        new_prospects.append(existing)
-                        continue
+                existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first()
+                if existing:
+                    new_prospects.append(existing)
+                    continue
 
-                    prospect = Prospect(
-                        first_name=first_name,
-                        last_name=last_name,
-                        title=title,
-                        linkedin_url=linkedin_url,
-                        company_id=company.id,
-                        status="New"
-                    )
-                    session.add(prospect)
-                    session.commit()
-                    session.refresh(prospect)
-                    session.expunge(prospect)
-                    new_prospects.append(prospect)
-                    
+                prospect = Prospect(
+                    first_name=emp.get("first_name", ""),
+                    last_name=emp.get("last_name", ""),
+                    title=emp.get("title", ""),
+                    linkedin_url=linkedin_url,
+                    company_id=company.id, # company is attached to this session
+                    status="New"
+                )
+                session.add(prospect)
+                new_prospects.append(prospect)
+
+            session.commit()
+
+            # 5. Refresh and expunge all prospects before returning
+            for p in new_prospects:
+                session.refresh(p)
+                session.expunge(p)
+
             return new_prospects
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise e
-
