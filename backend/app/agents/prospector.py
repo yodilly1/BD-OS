@@ -160,71 +160,72 @@ class ProspectorAgent:
             f"Competitors of {keywords} {industry} companies"
         ]
         
-        all_companies = []
-        seen_domains = set()
-        
-        # Data Gathering Phase (No DB interaction)
-        async def gather_prospect_data(company):
-            if not company.domain: return []
-            
-            try:
-                employees = await self.leadmagic.find_employees(company.domain)
-            except Exception as e:
-                print(f"Error finding employees for {company.name}: {e}")
-                return []
+        all_prospects = []
 
-            candidates = [emp for emp in employees if any(t.lower() in emp.get("title", "").lower() for t in titles)]
-            candidates = candidates[:MAX_PROSPECTS_PER_COMPANY]
-
-            async def process_candidate(emp):
-                first_name, last_name = emp.get("first_name", ""), emp.get("last_name", "")
-                linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
-                return {**emp, "linkedin_url": linkedin_url, "company_id": company.id}
-
-            enriched_candidates = await asyncio.gather(*[process_candidate(c) for c in candidates])
-            return enriched_candidates
-
-        # Find companies first (this part can be parallelized too, but let's keep it simple for now)
-        for q in queries:
-            if len(all_companies) >= MAX_COMPANIES: break
-            companies_from_query = await self.find_companies(q)
-            for c in companies_from_query:
-                if len(all_companies) >= MAX_COMPANIES: break
-                if c.domain and c.domain not in seen_domains:
-                    all_companies.append(c)
-                    seen_domains.add(c.domain)
-        
-        # Gather data in parallel
-        tasks = [gather_prospect_data(c) for c in all_companies]
-        results_nested = await asyncio.gather(*tasks)
-        all_enriched_candidates = [candidate for sublist in results_nested for candidate in sublist]
-
-        # Database Writing Phase (Sequential)
-        final_prospects = []
         with Session(engine) as session:
-            for emp in all_enriched_candidates:
-                if len(final_prospects) >= MAX_TOTAL_PROSPECTS: break
-                if not emp or not emp.get("linkedin_url"): continue
-
-                existing = session.exec(select(Prospect).where(Prospect.linkedin_url == emp["linkedin_url"])).first()
-                if existing:
-                    final_prospects.append(existing)
-                else:
-                    prospect = Prospect(
-                        first_name=emp.get("first_name"), last_name=emp.get("last_name"),
-                        title=emp.get("title"), linkedin_url=emp.get("linkedin_url"),
-                        company_id=emp.get("company_id"), status="New"
-                    )
-                    session.add(prospect)
-                    final_prospects.append(prospect)
+            all_companies = []
+            seen_domains = set()
             
+            for q in queries:
+                if len(all_companies) >= MAX_COMPANIES: break
+                companies_from_query = await self.find_companies(q)
+                for c in companies_from_query:
+                    if len(all_companies) >= MAX_COMPANIES: break
+                    if c.domain and c.domain not in seen_domains:
+                        attached_company = session.merge(c)
+                        all_companies.append(attached_company)
+                        seen_domains.add(attached_company.domain)
+
+            async def process_company_prospects(company):
+                if not company.domain: return []
+
+                try:
+                    employees = await self.leadmagic.find_employees(company.domain)
+                except Exception as e:
+                    print(f"Error finding employees for {company.name}: {e}")
+                    return []
+
+                candidates = [emp for emp in employees if any(t.lower() in emp.get("title", "").lower() for t in titles)]
+                candidates = candidates[:MAX_PROSPECTS_PER_COMPANY]
+
+                async def process_candidate(emp):
+                    first_name, last_name = emp.get("first_name", ""), emp.get("last_name", "")
+                    linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
+                    return {**emp, "linkedin_url": linkedin_url}
+
+                enriched_candidates = await asyncio.gather(*[process_candidate(c) for c in candidates])
+                
+                prospects = []
+                for emp in enriched_candidates:
+                    if not emp or not emp.get("linkedin_url"): continue
+
+                    existing = session.exec(select(Prospect).where(Prospect.linkedin_url == emp["linkedin_url"])).first()
+                    if existing:
+                        prospects.append(existing)
+                    else:
+                        prospect = Prospect(
+                            first_name=emp.get("first_name"), last_name=emp.get("last_name"),
+                            title=emp.get("title"), linkedin_url=emp.get("linkedin_url"),
+                            company_id=company.id, status="New"
+                        )
+                        session.add(prospect)
+                        prospects.append(prospect)
+                return prospects
+
+            tasks = [process_company_prospects(c) for c in all_companies]
+            results_nested = await asyncio.gather(*tasks)
+
+            all_prospects = [prospect for sublist in results_nested for prospect in sublist]
+
             session.commit()
+            
+            final_prospects = all_prospects[:MAX_TOTAL_PROSPECTS]
             
             for p in final_prospects:
                 session.refresh(p)
                 session.expunge(p)
                 
-        return final_prospects
+            return final_prospects
 
     async def url_prospecting_flow(self, url: str) -> List[Prospect]:
         """
@@ -237,7 +238,6 @@ class ProspectorAgent:
         domain = url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
 
         with Session(engine) as session:
-            # 1. Find or Create Company
             company = session.exec(select(Company).where(Company.domain.contains(domain))).first()
             if not company:
                 name = domain.split(".")[0].capitalize()
@@ -256,8 +256,7 @@ class ProspectorAgent:
             if not employees:
                 return []
 
-            # 3. Find LinkedIn URLs in parallel
-            company_name_for_search = company.name  # Use before potential expunge
+            company_name_for_search = company.name
             async def process_candidate(emp):
                 first_name = emp.get("first_name", "")
                 last_name = emp.get("last_name", "")
@@ -268,13 +267,12 @@ class ProspectorAgent:
             
             enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in employees])
 
-            # 4. Create Prospect objects within the session
             new_prospects = []
             for emp in enriched_candidates:
                 if not emp: continue
 
                 linkedin_url = emp.get("linkedin_url", "")
-                if not linkedin_url: continue # Skip if no LinkedIn URL
+                if not linkedin_url: continue
 
                 existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first()
                 if existing:
@@ -286,7 +284,7 @@ class ProspectorAgent:
                     last_name=emp.get("last_name", ""),
                     title=emp.get("title", ""),
                     linkedin_url=linkedin_url,
-                    company_id=company.id, # company is attached to this session
+                    company_id=company.id,
                     status="New"
                 )
                 session.add(prospect)
@@ -294,7 +292,6 @@ class ProspectorAgent:
 
             session.commit()
 
-            # 5. Refresh and expunge all prospects before returning
             for p in new_prospects:
                 session.refresh(p)
                 session.expunge(p)

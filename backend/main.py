@@ -76,7 +76,20 @@ async def deep_search(request: DeepSearchRequest, background_tasks: BackgroundTa
                 req.limit
             )
             # Convert Prospect objects to dicts for JSON serialization
-            result_dicts = [p.model_dump() for p in results]
+            result_dicts = [
+                {
+                    "id": p.id,
+                    "first_name": p.first_name,
+                    "last_name": p.last_name,
+                    "title": p.title,
+                    "linkedin_url": p.linkedin_url,
+                    "company_id": p.company_id,
+                    "status": p.status,
+                    "email": p.email,
+                    "phone": p.phone
+                }
+                for p in results
+            ]
             update_job(job_id, JobStatus.COMPLETED, result=result_dicts)
         except Exception as e:
             print(f"Job {job_id} failed: {e}")

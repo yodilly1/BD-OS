@@ -86,9 +86,20 @@ class LeadMagicClient:
                 response.raise_for_status()
                 data = response.json()
                 print(f"[LeadMagic] Response type: {type(data)}")
-                print(f"[LeadMagic] Response content (first 2): {data[:2] if isinstance(data, list) else data}")
-                print(f"[LeadMagic] Found {len(data)} employees")
-                return data
+                
+                # Handle both list and dict responses
+                if isinstance(data, dict):
+                    # API returns {"employees": [...]} format
+                    employees = data.get("employees", [])
+                    print(f"[LeadMagic] Extracted {len(employees)} employees from dict response")
+                    return employees
+                elif isinstance(data, list):
+                    # API returns [...] format directly
+                    print(f"[LeadMagic] Found {len(data)} employees")
+                    return data
+                else:
+                    print(f"[LeadMagic] Unexpected response type: {type(data)}")
+                    return []
             except httpx.HTTPStatusError as e:
                 print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
                 return []
