@@ -13,7 +13,7 @@ async def test_health():
             resp.raise_for_status()
             data = resp.json()
             if data["status"] == "healthy":
-                print("✅ PASSED")
+                print(f"✅ PASSED: {data}")
                 return True
             else:
                 print(f"❌ FAILED (Status: {data.get('status')})")

@@ -89,8 +89,12 @@ class LeadMagicClient:
                 
                 # Handle both list and dict responses
                 if isinstance(data, dict):
-                    # API returns {"employees": [...]} format
-                    employees = data.get("employees", [])
+                    # API returns {"data": [...]} format
+                    employees = data.get("data", [])
+                    if not employees:
+                        # Fallback to 'employees' just in case
+                        employees = data.get("employees", [])
+                    
                     print(f"[LeadMagic] Extracted {len(employees)} employees from dict response")
                     return employees
                 elif isinstance(data, list):
