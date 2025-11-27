@@ -62,6 +62,20 @@ class LeadMagicClient:
         Finds employees for a given company domain.
         Returns a list of employee profiles.
         """
+        # --- MOCK IMPLEMENTATION ---
+        if self.api_key == "mock-key":
+            print(f"[LeadMagic] MOCK: Simulating employee search for {domain}")
+            mock_data = [
+                {"first_name": "John", "last_name": "Doe", "title": "Software Engineer"},
+                {"first_name": "Jane", "last_name": "Smith", "title": "Product Manager"},
+                {"first_name": "Peter", "last_name": "Jones", "title": "Data Scientist"},
+                {"first_name": "Mary", "last_name": "Williams", "title": "UX Designer"},
+                {"first_name": "David", "last_name": "Brown", "title": "DevOps Engineer"},
+            ]
+            print(f"[LeadMagic] MOCK: Found {len(mock_data)} employees")
+            return mock_data
+        # --- END MOCK ---
+
         url = f"{self.base_url}/employee-finder"
         payload = {"company_domain": domain}
         
