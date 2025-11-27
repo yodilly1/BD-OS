@@ -13,6 +13,21 @@ class GeminiClient:
         self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     async def generate_content(self, prompt: str) -> str:
+        # --- MOCK IMPLEMENTATION ---
+        if os.getenv("GEMINI_API_KEY") == "mock-key":
+            print(f"[Gemini] MOCK: Simulating content generation for prompt: {prompt[:50]}...")
+            if "List of companies" in prompt:
+                return """
+                ```json
+                [
+                    {"name": "Stripe", "domain": "stripe.com", "description": "Online payment processing for internet businesses."},
+                    {"name": "Square", "domain": "squareup.com", "description": "Payments and point-of-sale solutions."},
+                    {"name": "Adyen", "domain": "adyen.com", "description": "A single payments platform globally."}
+                ]
+                ```
+                """
+            return ""
+        # --- END MOCK ---
         try:
             response = self.model.generate_content(prompt)
             return response.text
