@@ -9,27 +9,75 @@ class LeadMagicClient:
         self.api_key = os.getenv("LEADMAGIC_API_KEY")
         if not self.api_key:
             raise ValueError("LEADMAGIC_API_KEY not found in environment variables")
-        self.base_url = "https://api.leadmagic.io" # Assumed URL, needs verification
+        self.base_url = "https://api.leadmagic.io"
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}", # Assumed Auth header
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json"
         }
 
     async def find_person(self, linkedin_url: str) -> dict:
-        # Placeholder for finding person details
-        # This is a best-guess implementation. 
-        # Real implementation requires API docs.
-        url = f"{self.base_url}/v1/person/enrich" 
-        payload = {"linkedin_url": linkedin_url}
+        """
+        Enriches a person's profile using their LinkedIn URL.
+        Returns email, phone, and other profile data.
+        """
+        url = f"{self.base_url}/profile-search"
+        payload = {"profile_url": linkedin_url}
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             try:
-                # Commented out to prevent errors until endpoint is confirmed
-                # response = await client.post(url, headers=self.headers, json=payload)
-                # response.raise_for_status()
-                # return response.json()
-                print(f"Mock LeadMagic call for {linkedin_url}")
-                return {"mock_data": "true", "email": "test@example.com"}
-            except Exception as e:
-                print(f"Error with LeadMagic: {e}")
+                print(f"[LeadMagic] Calling API for {linkedin_url}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                raw_data = response.json()
+                print(f"[LeadMagic] Raw response: {raw_data}")
+                
+                # Parse LeadMagic's actual response format
+                # They may return fields like "professional_email", "work_email", "mobile_number", etc.
+                normalized_data = {
+                    "email": (
+                        raw_data.get("professional_email") or 
+                        raw_data.get("work_email") or 
+                        raw_data.get("email")
+                    ),
+                    "phone": (
+                        raw_data.get("mobile_number") or 
+                        raw_data.get("phone") or 
+                        raw_data.get("mobile")
+                    ),
+                    "raw": raw_data  # Keep full response for debugging
+                }
+                
+                print(f"[LeadMagic] Normalized data - Email: {normalized_data['email']}, Phone: {normalized_data['phone']}")
+                return normalized_data
+                
+            except httpx.HTTPStatusError as e:
+                print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
                 return {}
+            except Exception as e:
+                print(f"[LeadMagic] Error: {e}")
+                return {}
+
+    async def find_employees(self, domain: str) -> list:
+        """
+        Finds employees for a given company domain.
+        Returns a list of employee profiles.
+        """
+        url = f"{self.base_url}/employee-finder"
+        payload = {"company_domain": domain}
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                print(f"[LeadMagic] Searching employees for domain: {domain}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                print(f"[LeadMagic] Response type: {type(data)}")
+                print(f"[LeadMagic] Response content (first 2): {data[:2] if isinstance(data, list) else data}")
+                print(f"[LeadMagic] Found {len(data)} employees")
+                return data
+            except httpx.HTTPStatusError as e:
+                print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
+                return []
+            except Exception as e:
+                print(f"[LeadMagic] Error: {e}")
+                return []

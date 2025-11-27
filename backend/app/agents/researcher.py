@@ -1,5 +1,6 @@
 from app.tools.serper_client import SerperClient
 from app.tools.gemini_client import GeminiClient
+from app.tools.leadmagic_client import LeadMagicClient
 from app.models.company import Company
 from app.models.prospect import Prospect
 from app.db import engine
@@ -10,10 +11,11 @@ class ResearcherAgent:
     def __init__(self):
         self.serper = SerperClient()
         self.gemini = GeminiClient()
+        self.leadmagic = LeadMagicClient()
 
     async def enrich_company(self, company_id: int) -> Company:
         """
-        Enriches company data with news, tech stack, and more details.
+        Enriches company data with news, tech stack, and more details using public search.
         Saves updates to DB.
         """
         with Session(engine) as session:
@@ -64,12 +66,15 @@ class ResearcherAgent:
                 session.refresh(company)
             except Exception as e:
                 print(f"Error enriching company: {e}")
-                
+            
+            # Expunge to avoid DetachedInstanceError when returning
+            session.expunge(company)
             return company
 
     async def enrich_prospect(self, prospect_id: int) -> Prospect:
         """
-        Enriches prospect data (summary, pain points) based on their role and company.
+        Enriches prospect data using LeadMagic for contact info and signals,
+        and public search for company context to infer pain points.
         Saves updates to DB.
         """
         with Session(engine) as session:
@@ -80,6 +85,20 @@ class ResearcherAgent:
             # Fetch company for context
             company = session.get(Company, prospect.company_id) if prospect.company_id else None
 
+            # 1. Use LeadMagic to get email, phone, and signals
+            if prospect.linkedin_url:
+                print(f"Enriching {prospect.first_name} {prospect.last_name} with LeadMagic...")
+                leadmagic_data = await self.leadmagic.find_person(prospect.linkedin_url)
+                
+                # Update contact info from LeadMagic
+                if leadmagic_data.get("email"):
+                    prospect.email = leadmagic_data.get("email")
+                if leadmagic_data.get("phone"):
+                    prospect.phone = leadmagic_data.get("phone")
+                
+                print(f"LeadMagic data: {leadmagic_data}")
+            
+            # 2. Use public search + AI to infer pain points and summary
             prompt = f"""
             You are a BDR Researcher. Infer the likely pain points and summary for this prospect.
             
@@ -89,8 +108,8 @@ class ResearcherAgent:
             Company Description: {company.description if company else 'Unknown'}
             
             Return a JSON object with keys:
-            - summary (professional summary inference)
-            - pain_points (likely challenges they face in their role)
+            - summary (professional summary inference based on their title and company)
+            - pain_points (likely challenges they face in their role, be specific to their title)
             """
             
             response_text = await self.gemini.generate_content(prompt)
@@ -105,6 +124,8 @@ class ResearcherAgent:
                 session.commit()
                 session.refresh(prospect)
             except Exception as e:
-                print(f"Error enriching prospect: {e}")
-                
+                print(f"Error enriching prospect with AI: {e}")
+            
+            # Expunge to avoid DetachedInstanceError when returning
+            session.expunge(prospect)
             return prospect

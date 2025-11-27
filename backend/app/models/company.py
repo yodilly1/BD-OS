@@ -9,7 +9,7 @@ class Company(SQLModel, table=True):
     description: Optional[str] = None
     linkedin_url: Optional[str] = None
     location: Optional[str] = None
-    employees_count: Optional[int] = None
+    employees_count: Optional[str] = None
     # Note: Lists are not natively supported in SQLite/SQLModel without JSON serialization or relationship tables.
     # For simplicity in this MVP, we will store them as JSON strings or ignore them for DB persistence if not critical.
     # To keep it simple, we'll make them optional strings for now (e.g. comma separated).
