@@ -20,7 +20,7 @@ class LeadMagicClient:
         Enriches a person's profile using their LinkedIn URL.
         Returns email, phone, and other profile data.
         """
-        url = f"{self.base_url}/profile-search"
+        url = f"{self.base_url}/v1/people/profile-search"
         payload = {"profile_url": linkedin_url}
         
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -142,4 +142,116 @@ class LeadMagicClient:
                 return {}
             except Exception as e:
                 # print(f"[LeadMagic] Error finding role {role}: {e}")
+                return {}
+
+    async def find_mobile_number(self, linkedin_url: str, work_email: str = None, personal_email: str = None) -> str:
+        """
+        Finds the mobile number for a person.
+        Uses the /v1/people/mobile-finder endpoint.
+        """
+        url = f"{self.base_url}/v1/people/mobile-finder"
+        payload = {"profile_url": linkedin_url}
+        if work_email:
+            payload["work_email"] = work_email
+        if personal_email:
+            payload["personal_email"] = personal_email
+            
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                # print(f"[LeadMagic] Searching mobile for {linkedin_url}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                return data.get("mobile_number")
+            except Exception as e:
+                print(f"[LeadMagic] Error finding mobile: {e}")
+                return None
+
+    async def find_person_by_email(self, work_email: str = None, personal_email: str = None) -> dict:
+        """
+        Finds a person's B2B profile (LinkedIn URL) using their email.
+        Uses the /v1/people/b2b-profile endpoint.
+        """
+        url = f"{self.base_url}/v1/people/b2b-profile"
+        payload = {}
+        if work_email:
+            payload["work_email"] = work_email
+        if personal_email:
+            payload["personal_email"] = personal_email
+            
+        if not payload:
+            return {}
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                # print(f"[LeadMagic] Searching profile for email...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("profile_url"):
+                    return {
+                        "linkedin_url": data.get("profile_url"),
+                        "message": data.get("message")
+                    }
+                return {}
+            except Exception as e:
+                print(f"[LeadMagic] Error finding profile by email: {e}")
+                return {}
+
+    async def check_job_change(self, linkedin_url: str, company_domain: str) -> dict:
+        """
+        Checks if a person has changed jobs.
+        Uses the /v1/people/job-change-detector endpoint.
+        """
+        url = f"{self.base_url}/v1/people/job-change-detector"
+        payload = {
+            "profile_url": linkedin_url,
+            "company_domain": company_domain
+        }
+            
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                # print(f"[LeadMagic] Checking job change for {linkedin_url}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                return {
+                    "job_change_detected": data.get("job_change_detected"),
+                    "status": data.get("status"),
+                    "summary": data.get("summary"),
+                    "current_company": data.get("current_company"),
+                    "current_position": data.get("current_position")
+                }
+            except Exception as e:
+                print(f"[LeadMagic] Error checking job change: {e}")
+                return {}
+    async def find_email(self, first_name: str, last_name: str, domain: str) -> dict:
+        """
+        Finds a professional email address using name and domain.
+        Uses the /v1/people/email-finder endpoint.
+        """
+        url = f"{self.base_url}/v1/people/email-finder"
+        payload = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "domain": domain
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                # print(f"[LeadMagic] Finding email for {first_name} {last_name} at {domain}...")
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                return {
+                    "email": data.get("email"),
+                    "status": data.get("status"),
+                    "verification_status": data.get("verification_status")
+                }
+            except Exception as e:
+                print(f"[LeadMagic] Error finding email: {e}")
                 return {}

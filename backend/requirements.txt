@@ -6,3 +6,4 @@ anthropic
 httpx
 pydantic
 sqlmodel
+psycopg2-binary

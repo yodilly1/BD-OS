@@ -77,55 +77,109 @@ class ResearcherAgent:
         and public search for company context to infer pain points.
         Saves updates to DB.
         """
+        # 1. Fetch initial data (Read-only DB)
+        prospect_data = {}
+        company_data = {}
         with Session(engine) as session:
             prospect = session.get(Prospect, prospect_id)
             if not prospect:
                 raise ValueError("Prospect not found")
             
-            # Fetch company for context
-            company = session.get(Company, prospect.company_id) if prospect.company_id else None
+            prospect_data = {
+                "linkedin_url": prospect.linkedin_url,
+                "first_name": prospect.first_name,
+                "last_name": prospect.last_name,
+                "title": prospect.title,
+                "email": prospect.email,
+                "company_id": prospect.company_id
+            }
+            
+            if prospect.company_id:
+                company = session.get(Company, prospect.company_id)
+                if company:
+                    company_data = {
+                        "name": company.name,
+                        "description": company.description,
+                        "domain": company.domain
+                    }
 
-            # 1. Use LeadMagic to get email, phone, and signals
-            if prospect.linkedin_url:
-                print(f"Enriching {prospect.first_name} {prospect.last_name} with LeadMagic...")
-                leadmagic_data = await self.leadmagic.find_person(prospect.linkedin_url)
-                
-                # Update contact info from LeadMagic
-                if leadmagic_data.get("email"):
-                    prospect.email = leadmagic_data.get("email")
-                if leadmagic_data.get("phone"):
-                    prospect.phone = leadmagic_data.get("phone")
-                
-                print(f"LeadMagic data: {leadmagic_data}")
+        # 2. Async IO (No DB session)
+        updates = {}
+        
+        # LeadMagic
+        if prospect_data.get("linkedin_url"):
+            print(f"Enriching {prospect_data['first_name']} {prospect_data['last_name']} with LeadMagic...")
+            leadmagic_data = await self.leadmagic.find_person(prospect_data["linkedin_url"])
             
-            # 2. Use public search + AI to infer pain points and summary
-            prompt = f"""
-            You are a BDR Researcher. Infer the likely pain points and summary for this prospect.
+            if leadmagic_data.get("email"):
+                updates["email"] = leadmagic_data.get("email")
+            else:
+                # Fallback: Try Email Finder endpoint
+                if prospect_data.get("first_name") and prospect_data.get("last_name") and company_data.get("domain"):
+                    print(f"No email in profile, trying Email Finder for {prospect_data['first_name']} {prospect_data['last_name']} @ {company_data['domain']}...")
+                    email_data = await self.leadmagic.find_email(
+                        prospect_data["first_name"], 
+                        prospect_data["last_name"], 
+                        company_data["domain"]
+                    )
+                    if email_data.get("email"):
+                        updates["email"] = email_data.get("email")
+                        print(f"Email found via Finder: {email_data.get('email')}")
+
+            if leadmagic_data.get("phone"):
+                updates["phone"] = leadmagic_data.get("phone")
+            else:
+                # Try mobile finder
+                print(f"No phone found, trying Mobile Finder for {prospect_data['linkedin_url']}...")
+                # Use email from LeadMagic or Finder if found, else existing email
+                work_email = updates.get("email") or prospect_data.get("email")
+                mobile = await self.leadmagic.find_mobile_number(prospect_data["linkedin_url"], work_email=work_email)
+                if mobile:
+                    updates["phone"] = mobile
+                    print(f"Mobile found: {mobile}")
             
-            Prospect: {prospect.first_name} {prospect.last_name}
-            Title: {prospect.title}
-            Company: {company.name if company else 'Unknown'}
-            Company Description: {company.description if company else 'Unknown'}
-            
-            Return a JSON object with keys:
-            - summary (professional summary inference based on their title and company)
-            - pain_points (likely challenges they face in their role, be specific to their title)
-            """
-            
+            print(f"LeadMagic data: {leadmagic_data}")
+
+        # Gemini / Serper
+        prompt = f"""
+        You are a BDR Researcher. Infer the likely pain points and summary for this prospect.
+        
+        Prospect: {prospect_data['first_name']} {prospect_data['last_name']}
+        Title: {prospect_data['title']}
+        Company: {company_data.get('name', 'Unknown')}
+        Company Description: {company_data.get('description', 'Unknown')}
+        
+        Return a JSON object with keys:
+        - summary (professional summary inference based on their title and company)
+        - pain_points (likely challenges they face in their role, be specific to their title)
+        """
+        
+        try:
             response_text = await self.gemini.generate_content(prompt)
             cleaned_response = response_text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(cleaned_response)
+            updates["summary"] = data.get("summary")
             
-            try:
-                data = json.loads(cleaned_response)
-                prospect.summary = data.get("summary")
-                prospect.pain_points = data.get("pain_points")
+            pain_points = data.get("pain_points")
+            if isinstance(pain_points, list):
+                updates["pain_points"] = "\n- ".join(pain_points)
+            else:
+                updates["pain_points"] = pain_points
+        except Exception as e:
+            print(f"Error enriching prospect with AI: {e}")
+
+        # 3. Save updates (Write DB)
+        with Session(engine) as session:
+            prospect = session.get(Prospect, prospect_id)
+            if prospect:
+                for key, value in updates.items():
+                    if value:
+                        setattr(prospect, key, value)
                 
                 session.add(prospect)
                 session.commit()
                 session.refresh(prospect)
-            except Exception as e:
-                print(f"Error enriching prospect with AI: {e}")
-            
-            # Expunge to avoid DetachedInstanceError when returning
-            session.expunge(prospect)
-            return prospect
+                session.expunge(prospect)
+                return prospect
+            else:
+                raise ValueError("Prospect not found during save")

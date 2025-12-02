@@ -257,7 +257,7 @@ class ProspectorAgent:
                 
             return final_prospects
 
-    async def url_prospecting_flow(self, url: str) -> List[Prospect]:
+    async def url_prospecting_flow(self, url: str, titles: List[str] = None) -> List[Prospect]:
         """
         Executes a prospecting workflow based on a company URL.
         Refactored to use a single session and handle detached instances correctly.
@@ -276,18 +276,37 @@ class ProspectorAgent:
                 session.commit()
                 session.refresh(company)
 
-            try:
-                employees = await self.leadmagic.find_employees(domain)
-            except Exception as e:
-                print(f"Error searching employees for {domain}: {e}")
-                return []
+            candidates = []
+            if titles:
+                # Use role-finder if titles are provided
+                print(f"Searching for roles {titles} at {domain}")
+                tasks = [self.leadmagic.find_person_by_role(domain, title) for title in titles]
+                results = await asyncio.gather(*tasks)
+                print(f"Role search results: {results}")
+                
+                seen_urls = set()
+                for res in results:
+                    if res and res.get("linkedin_url") and res.get("linkedin_url") not in seen_urls:
+                        candidates.append(res)
+                        seen_urls.add(res.get("linkedin_url"))
+            else:
+                # Fallback to general employee search
+                try:
+                    employees = await self.leadmagic.find_employees(domain)
+                    candidates = employees[:MAX_PROSPECTS]
+                except Exception as e:
+                    print(f"Error searching employees for {domain}: {e}")
+                    return []
             
-            employees = employees[:MAX_PROSPECTS]
-            if not employees:
+            if not candidates:
                 return []
 
             company_name_for_search = company.name
             async def process_candidate(emp):
+                # If we already have linkedin_url (from role-finder), use it
+                if emp.get("linkedin_url"):
+                     return {**emp, "company_id": company.id}
+
                 first_name = emp.get("first_name", "")
                 last_name = emp.get("last_name", "")
                 if not first_name or not last_name:
@@ -295,7 +314,7 @@ class ProspectorAgent:
                 linkedin_url = await self._find_linkedin_url(first_name, last_name, company_name_for_search)
                 return {**emp, "linkedin_url": linkedin_url}
             
-            enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in employees])
+            enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in candidates])
 
             new_prospects = []
             for emp in enriched_candidates:
