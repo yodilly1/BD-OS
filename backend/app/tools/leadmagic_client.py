@@ -1,8 +1,10 @@
-import httpx
 import os
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
 
 class LeadMagicClient:
     def __init__(self):
@@ -10,10 +12,7 @@ class LeadMagicClient:
         if not self.api_key:
             raise ValueError("LEADMAGIC_API_KEY not found in environment variables")
         self.base_url = "https://api.leadmagic.io"
-        self.headers = {
-            "X-API-Key": self.api_key,
-            "Content-Type": "application/json"
-        }
+        self.headers = {"X-API-Key": self.api_key, "Content-Type": "application/json"}
 
     async def find_person(self, linkedin_url: str) -> dict:
         """
@@ -22,7 +21,7 @@ class LeadMagicClient:
         """
         url = f"{self.base_url}/v1/people/profile-search"
         payload = {"profile_url": linkedin_url}
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 print(f"[LeadMagic] Calling API for {linkedin_url}...")
@@ -30,37 +29,40 @@ class LeadMagicClient:
                 response.raise_for_status()
                 raw_data = response.json()
                 print(f"[LeadMagic] Raw response: {raw_data}")
-                
+
                 # Parse LeadMagic's actual response format
                 # They may return fields like "professional_email", "work_email", "mobile_number", etc.
                 normalized_data = {
                     "email": (
-                        raw_data.get("professional_email") or 
-                        raw_data.get("work_email") or 
-                        raw_data.get("email")
+                        raw_data.get("professional_email")
+                        or raw_data.get("work_email")
+                        or raw_data.get("email")
                     ),
                     "phone": (
-                        raw_data.get("mobile_number") or 
-                        raw_data.get("phone") or 
-                        raw_data.get("mobile")
+                        raw_data.get("mobile_number")
+                        or raw_data.get("phone")
+                        or raw_data.get("mobile")
                     ),
                     "title": (
-                        raw_data.get("job_title") or
-                        raw_data.get("title") or
-                        raw_data.get("headline")
+                        raw_data.get("job_title")
+                        or raw_data.get("title")
+                        or raw_data.get("headline")
                     ),
                     "company": (
-                        raw_data.get("company_name") or
-                        raw_data.get("company")
+                        raw_data.get("company_name") or raw_data.get("company")
                     ),
-                    "raw": raw_data  # Keep full response for debugging
+                    "raw": raw_data,  # Keep full response for debugging
                 }
-                
-                print(f"[LeadMagic] Normalized data - Email: {normalized_data['email']}, Phone: {normalized_data['phone']}")
+
+                print(
+                    f"[LeadMagic] Normalized data - Email: {normalized_data['email']}, Phone: {normalized_data['phone']}"
+                )
                 return normalized_data
-                
+
             except httpx.HTTPStatusError as e:
-                print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
+                print(
+                    f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}"
+                )
                 return {}
             except Exception as e:
                 print(f"[LeadMagic] Error: {e}")
@@ -75,11 +77,27 @@ class LeadMagicClient:
         if self.api_key == "mock-key":
             print(f"[LeadMagic] MOCK: Simulating employee search for {domain}")
             mock_data = [
-                {"first_name": "John", "last_name": "Doe", "title": "Software Engineer"},
-                {"first_name": "Jane", "last_name": "Smith", "title": "Product Manager"},
-                {"first_name": "Peter", "last_name": "Jones", "title": "Data Scientist"},
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "title": "Software Engineer",
+                },
+                {
+                    "first_name": "Jane",
+                    "last_name": "Smith",
+                    "title": "Product Manager",
+                },
+                {
+                    "first_name": "Peter",
+                    "last_name": "Jones",
+                    "title": "Data Scientist",
+                },
                 {"first_name": "Mary", "last_name": "Williams", "title": "UX Designer"},
-                {"first_name": "David", "last_name": "Brown", "title": "DevOps Engineer"},
+                {
+                    "first_name": "David",
+                    "last_name": "Brown",
+                    "title": "DevOps Engineer",
+                },
             ]
             print(f"[LeadMagic] MOCK: Found {len(mock_data)} employees")
             return mock_data
@@ -87,7 +105,7 @@ class LeadMagicClient:
 
         url = f"{self.base_url}/employee-finder"
         payload = {"company_domain": domain}
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 print(f"[LeadMagic] Searching employees for domain: {domain}...")
@@ -95,7 +113,7 @@ class LeadMagicClient:
                 response.raise_for_status()
                 data = response.json()
                 print(f"[LeadMagic] Response type: {type(data)}")
-                
+
                 # Handle both list and dict responses
                 if isinstance(data, dict):
                     # API returns {"data": [...]} format
@@ -103,8 +121,10 @@ class LeadMagicClient:
                     if not employees:
                         # Fallback to 'employees' just in case
                         employees = data.get("employees", [])
-                    
-                    print(f"[LeadMagic] Extracted {len(employees)} employees from dict response")
+
+                    print(
+                        f"[LeadMagic] Extracted {len(employees)} employees from dict response"
+                    )
                     return employees
                 elif isinstance(data, list):
                     # API returns [...] format directly
@@ -114,7 +134,9 @@ class LeadMagicClient:
                     print(f"[LeadMagic] Unexpected response type: {type(data)}")
                     return []
             except httpx.HTTPStatusError as e:
-                print(f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}")
+                print(
+                    f"[LeadMagic] API error ({e.response.status_code}): {e.response.text}"
+                )
                 return []
                 return []
             except Exception as e:
@@ -127,33 +149,32 @@ class LeadMagicClient:
         Uses the /role-finder endpoint.
         """
         url = f"{self.base_url}/role-finder"
-        payload = {
-            "company_domain": domain,
-            "job_title": role
-        }
-        
+        payload = {"company_domain": domain, "job_title": role}
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 # print(f"[LeadMagic] Searching for {role} at {domain}...")
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 if data.get("message") == "Role Found":
                     # Normalize to match employee-finder format
                     return {
                         "first_name": data.get("first_name"),
                         "last_name": data.get("last_name"),
-                        "title": role, # API doesn't return title, so we use the requested role
+                        "title": role,  # API doesn't return title, so we use the requested role
                         "linkedin_url": data.get("profile_url"),
-                        "company": data.get("company_name")
+                        "company": data.get("company_name"),
                     }
                 return {}
-            except Exception as e:
+            except Exception:
                 # print(f"[LeadMagic] Error finding role {role}: {e}")
                 return {}
 
-    async def find_mobile_number(self, linkedin_url: str, work_email: str = None, personal_email: str = None) -> str:
+    async def find_mobile_number(
+        self, linkedin_url: str, work_email: str = None, personal_email: str = None
+    ) -> str:
         """
         Finds the mobile number for a person.
         Uses the /v1/people/mobile-finder endpoint.
@@ -164,20 +185,22 @@ class LeadMagicClient:
             payload["work_email"] = work_email
         if personal_email:
             payload["personal_email"] = personal_email
-            
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 # print(f"[LeadMagic] Searching mobile for {linkedin_url}...")
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 return data.get("mobile_number")
             except Exception as e:
                 print(f"[LeadMagic] Error finding mobile: {e}")
                 return None
 
-    async def find_person_by_email(self, work_email: str = None, personal_email: str = None) -> dict:
+    async def find_person_by_email(
+        self, work_email: str = None, personal_email: str = None
+    ) -> dict:
         """
         Finds a person's B2B profile (LinkedIn URL) using their email.
         Uses the /v1/people/b2b-profile endpoint.
@@ -188,7 +211,7 @@ class LeadMagicClient:
             payload["work_email"] = work_email
         if personal_email:
             payload["personal_email"] = personal_email
-            
+
         if not payload:
             return {}
 
@@ -198,11 +221,11 @@ class LeadMagicClient:
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 if data.get("profile_url"):
                     return {
                         "linkedin_url": data.get("profile_url"),
-                        "message": data.get("message")
+                        "message": data.get("message"),
                     }
                 return {}
             except Exception as e:
@@ -215,51 +238,45 @@ class LeadMagicClient:
         Uses the /v1/people/job-change-detector endpoint.
         """
         url = f"{self.base_url}/v1/people/job-change-detector"
-        payload = {
-            "profile_url": linkedin_url,
-            "company_domain": company_domain
-        }
-            
+        payload = {"profile_url": linkedin_url, "company_domain": company_domain}
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 # print(f"[LeadMagic] Checking job change for {linkedin_url}...")
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 return {
                     "job_change_detected": data.get("job_change_detected"),
                     "status": data.get("status"),
                     "summary": data.get("summary"),
                     "current_company": data.get("current_company"),
-                    "current_position": data.get("current_position")
+                    "current_position": data.get("current_position"),
                 }
             except Exception as e:
                 print(f"[LeadMagic] Error checking job change: {e}")
                 return {}
+
     async def find_email(self, first_name: str, last_name: str, domain: str) -> dict:
         """
         Finds a professional email address using name and domain.
         Uses the /v1/people/email-finder endpoint.
         """
         url = f"{self.base_url}/v1/people/email-finder"
-        payload = {
-            "first_name": first_name,
-            "last_name": last_name,
-            "domain": domain
-        }
-        
+        payload = {"first_name": first_name, "last_name": last_name, "domain": domain}
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 # print(f"[LeadMagic] Finding email for {first_name} {last_name} at {domain}...")
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 return {
                     "email": data.get("email"),
                     "status": data.get("status"),
-                    "verification_status": data.get("verification_status")
+                    "verification_status": data.get("verification_status"),
                 }
             except Exception as e:
                 print(f"[LeadMagic] Error finding email: {e}")

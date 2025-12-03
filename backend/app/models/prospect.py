@@ -1,5 +1,7 @@
-from sqlmodel import SQLModel, Field
 from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
 
 class Prospect(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -14,4 +16,4 @@ class Prospect(SQLModel, table=True):
     location: Optional[str] = None
     summary: Optional[str] = None
     pain_points: Optional[str] = None
-    status: str = "New" # New, Contacted, Replied, Meeting Booked
+    status: str = "New"  # New, Contacted, Replied, Meeting Booked

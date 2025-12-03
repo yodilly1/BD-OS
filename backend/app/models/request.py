@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 from typing import List
+
+from pydantic import BaseModel
+
 
 class DeepSearchRequest(BaseModel):
     industry: str
@@ -8,9 +10,11 @@ class DeepSearchRequest(BaseModel):
     titles: List[str]
     limit: int = 20
 
+
 class UrlSearchRequest(BaseModel):
     url: str
     titles: List[str] = None
+
 
 class ManualAddRequest(BaseModel):
     first_name: str

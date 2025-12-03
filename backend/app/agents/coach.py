@@ -1,5 +1,6 @@
-from app.tools.gemini_client import GeminiClient
 from app.models.interaction import Interaction, InteractionType
+from app.tools.gemini_client import GeminiClient
+
 
 class CoachAgent:
     def __init__(self):
@@ -16,15 +17,13 @@ class CoachAgent:
         2. Missed opportunities.
         3. Objection handling quality.
         4. Actionable advice for next time.
-        
+
         Transcript:
         {transcript}
         """
-        
+
         feedback = await self.gemini.generate_content(prompt)
-        
+
         return Interaction(
-            type=InteractionType.COACHING_FEEDBACK,
-            content=feedback,
-            status="reviewed"
+            type=InteractionType.COACHING_FEEDBACK, content=feedback, status="reviewed"
         )
