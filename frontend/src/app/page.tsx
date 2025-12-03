@@ -1,21 +1,12 @@
 "use client";
 
-<<<<<<< HEAD
-import { useState, useEffect } from 'react';
-import SettingsView from '../components/SettingsView';
-import ProspectorView from '../components/ProspectorView';
-import ResearcherView from '../components/ResearcherView';
-import OutreachView from '../components/OutreachView';
-import ContactsView from '../components/ContactsView';
-import CampaignView from '../components/CampaignView';
-import { UserGroupIcon, MagnifyingGlassIcon, ChatBubbleLeftRightIcon, AcademicCapIcon, TableCellsIcon, Cog6ToothIcon, FlagIcon } from '@heroicons/react/24/outline';
-=======
 import { useState, useEffect } from "react";
 import SettingsView from "../components/SettingsView";
 import ProspectorView from "../components/ProspectorView";
 import ResearcherView from "../components/ResearcherView";
 import OutreachView from "../components/OutreachView";
 import ContactsView from "../components/ContactsView";
+import CampaignView from "../components/CampaignView";
 import {
   UserGroupIcon,
   MagnifyingGlassIcon,
@@ -23,8 +14,8 @@ import {
   AcademicCapIcon,
   TableCellsIcon,
   Cog6ToothIcon,
+  FlagIcon,
 } from "@heroicons/react/24/outline";
->>>>>>> e707acc0f39f3fbe7a4b6f7c1601c1c1e1f3b42c
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("mission-control");
@@ -47,8 +38,8 @@ export default function Home() {
             <SidebarItem
               icon={<FlagIcon className="w-5 h-5" />}
               label="Campaigns"
-              active={activeTab === 'campaigns'}
-              onClick={() => setActiveTab('campaigns')}
+              active={activeTab === "campaigns"}
+              onClick={() => setActiveTab("campaigns")}
             />
             <SidebarItem
               icon={<TableCellsIcon className="w-5 h-5" />}
@@ -89,22 +80,13 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="flex-1 p-8">
-<<<<<<< HEAD
-        {activeTab === 'mission-control' && <MissionControl />}
-        {activeTab === 'campaigns' && <CampaignView />}
-        {activeTab === 'contacts' && <ContactsView />}
-        {activeTab === 'prospector' && <ProspectorView />}
-        {activeTab === 'researcher' && <ResearcherView />}
-        {activeTab === 'outreach' && <OutreachView />}
-        {activeTab === 'settings' && <SettingsView />}
-=======
         {activeTab === "mission-control" && <MissionControl />}
+        {activeTab === "campaigns" && <CampaignView />}
         {activeTab === "contacts" && <ContactsView />}
         {activeTab === "prospector" && <ProspectorView />}
         {activeTab === "researcher" && <ResearcherView />}
         {activeTab === "outreach" && <OutreachView />}
         {activeTab === "settings" && <SettingsView />}
->>>>>>> e707acc0f39f3fbe7a4b6f7c1601c1c1e1f3b42c
       </div>
     </main>
   );
@@ -114,11 +96,10 @@ function SidebarItem({ icon, label, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-        active
+      className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${active
           ? "bg-blue-600 text-white"
           : "text-slate-400 hover:bg-slate-800 hover:text-white"
-      }`}
+        }`}
     >
       {icon}
       <span className="font-medium">{label}</span>
@@ -214,9 +195,8 @@ function AgentStatus({ name, status, details }: any) {
     <div className="flex items-center justify-between p-4 bg-slate-900 rounded-lg">
       <div className="flex items-center space-x-4">
         <div
-          className={`w-3 h-3 rounded-full ${
-            status === "Working" ? "bg-green-500 animate-pulse" : "bg-slate-500"
-          }`}
+          className={`w-3 h-3 rounded-full ${status === "Working" ? "bg-green-500 animate-pulse" : "bg-slate-500"
+            }`}
         />
         <span className="font-medium">{name}</span>
       </div>
