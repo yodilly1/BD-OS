@@ -12,9 +12,11 @@ git push origin main
 ```
 
 **Verify it works:**
+
 ```bash
 python verify_system_health.py
 ```
+
 The URL search test should now pass ✅
 
 ---
@@ -24,24 +26,28 @@ The URL search test should now pass ✅
 The deep search is failing because **Prospect objects cannot be serialized to JSON** when stored in the in-memory job store.
 
 ### The Problem
+
 In `backend/main.py`, the background task does this:
+
 ```python
 results = await prospector.deep_prospecting_flow(...)
 update_job(job_id, JobStatus.COMPLETED, result=results)  # ❌ FAILS - can't serialize Prospect objects
 ```
 
 ### The Solution
+
 Convert Prospect objects to dictionaries before storing:
 
-**File:** `backend/main.py`  
+**File:** `backend/main.py`
 **Location:** Inside the `run_deep_search` function (around line 70-80)
 
 **REPLACE THIS:**
+
 ```python
 results = await prospector.deep_prospecting_flow(
-    req.industry, 
-    req.size, 
-    req.keywords, 
+    req.industry,
+    req.size,
+    req.keywords,
     req.titles,
     req.limit
 )
@@ -49,11 +55,12 @@ update_job(job_id, JobStatus.COMPLETED, result=results)
 ```
 
 **WITH THIS:**
+
 ```python
 results = await prospector.deep_prospecting_flow(
-    req.industry, 
-    req.size, 
-    req.keywords, 
+    req.industry,
+    req.size,
+    req.keywords,
     req.titles,
     req.limit
 )
@@ -82,37 +89,39 @@ update_job(job_id, JobStatus.COMPLETED, result=result_dicts)
 
 Apply the same single-session approach you used for URL search to the `deep_prospecting_flow` method.
 
-**File:** `backend/app/agents/prospector.py`  
+**File:** `backend/app/agents/prospector.py`
 **Method:** `deep_prospecting_flow` (around line 155-269)
 
 **Key changes needed:**
+
 1. Move the session creation OUTSIDE the loop
 2. Expunge prospects within the same session where they're created
 3. Use the same pattern as your URL search fix
 
 **Example structure:**
+
 ```python
 async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20) -> List[Prospect]:
     # ... company finding logic ...
-    
+
     all_prospects = []
-    
+
     with Session(engine) as session:  # ✅ Single session for all prospects
         for company in all_companies:
             # ... employee finding and filtering ...
-            
+
             for emp in enriched_candidates:
                 # Check existing
                 existing = session.exec(
                     select(Prospect).where(Prospect.linkedin_url == linkedin_url)
                 ).first() if linkedin_url else None
-                
+
                 if existing:
                     session.refresh(existing)
                     session.expunge(existing)
                     all_prospects.append(existing)
                     continue
-                
+
                 # Create new
                 prospect = Prospect(...)
                 session.add(prospect)
@@ -120,7 +129,7 @@ async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, t
                 session.refresh(prospect)
                 session.expunge(prospect)  # ✅ Expunge in same session
                 all_prospects.append(prospect)
-    
+
     return all_prospects
 ```
 
@@ -129,11 +138,13 @@ async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, t
 ## STEP 4: Test Everything
 
 Run the verification script:
+
 ```bash
 python verify_system_health.py
 ```
 
 **Expected output:**
+
 ```
 Testing /health endpoint... ✅ PASSED
 Testing /api/prospect/url-search (Stripe)... ✅ PASSED
@@ -165,6 +176,7 @@ git push origin main
 ## TROUBLESHOOTING
 
 ### If Step 2 Still Fails:
+
 Add debug logging to see what's happening:
 
 ```python
@@ -172,10 +184,10 @@ Add debug logging to see what's happening:
 try:
     results = await prospector.deep_prospecting_flow(...)
     print(f"DEBUG: Got {len(results)} results, type: {type(results[0]) if results else 'empty'}")
-    
+
     result_dicts = [...]
     print(f"DEBUG: Converted to {len(result_dicts)} dicts")
-    
+
     update_job(job_id, JobStatus.COMPLETED, result=result_dicts)
     print(f"DEBUG: Job {job_id} updated successfully")
 except Exception as e:
@@ -186,6 +198,7 @@ except Exception as e:
 ```
 
 ### If Polling Still Fails:
+
 Check the job store directly:
 
 ```python
@@ -202,11 +215,11 @@ Then call: `curl http://localhost:8000/api/jobs/debug`
 
 ## SUCCESS CRITERIA
 
-✅ URL search returns prospects without errors  
-✅ Deep search creates job successfully  
-✅ Job polling returns completed status  
-✅ Results appear in frontend  
-✅ `verify_system_health.py` shows all tests passing  
+✅ URL search returns prospects without errors
+✅ Deep search creates job successfully
+✅ Job polling returns completed status
+✅ Results appear in frontend
+✅ `verify_system_health.py` shows all tests passing
 
 ---
 

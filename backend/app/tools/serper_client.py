@@ -1,9 +1,11 @@
-import httpx
-import os
 import json
+import os
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
 
 class SerperClient:
     def __init__(self):
@@ -11,10 +13,7 @@ class SerperClient:
         if not self.api_key:
             raise ValueError("SERPER_API_KEY not found in environment variables")
         self.base_url = "https://google.serper.dev/search"
-        self.headers = {
-            "X-API-KEY": self.api_key,
-            "Content-Type": "application/json"
-        }
+        self.headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
 
     async def search(self, query: str, type: str = "search") -> dict:
         """
@@ -28,16 +27,18 @@ class SerperClient:
                 first_name = parts[0]
                 last_name = parts[1]
                 return {
-                    "organic": [{
-                        "link": f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower()}"
-                    }]
+                    "organic": [
+                        {
+                            "link": f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower()}"
+                        }
+                    ]
                 }
             return {"organic": []}
         # --- END MOCK ---
 
         url = f"https://google.serper.dev/{type}" if type != "search" else self.base_url
         payload = json.dumps({"q": query})
-        
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(url, headers=self.headers, data=payload)

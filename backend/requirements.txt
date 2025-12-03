@@ -7,3 +7,6 @@ httpx
 pydantic
 sqlmodel
 psycopg2-binary
+isort
+pytest
+httpx

@@ -1,35 +1,34 @@
 import asyncio
-import os
+
+
+from app.agents.coach import CoachAgent
+from app.agents.outreach import OutreachAgent
 from app.agents.prospector import ProspectorAgent
 from app.agents.researcher import ResearcherAgent
-from app.agents.outreach import OutreachAgent
-from app.agents.coach import CoachAgent
-from app.db import create_db_and_tables, engine
-from sqlmodel import Session, select
-from app.models.prospect import Prospect
-from app.models.company import Company
+from app.db import create_db_and_tables
+
 
 async def main():
     print("--- STARTING SYSTEM HEALTH CHECK ---")
     create_db_and_tables()
-    
+
     # Initialize Agents
     prospector = ProspectorAgent()
     researcher = ResearcherAgent()
     outreach = OutreachAgent()
     coach = CoachAgent()
-    
+
     # 1. Test Prospector (Manual Add - Fastest way to get a valid prospect)
     print("\n[1/4] Testing Prospector (Manual Add)...")
     # Using a known entity to ensure data availability
     prospect = await prospector.manual_prospecting_flow(
-        first_name="Derric",
-        last_name="Lee",
-        domain="snorkel.ai"
+        first_name="Derric", last_name="Lee", domain="snorkel.ai"
     )
-    
+
     if prospect:
-        print(f"✅ Prospector Success: Added {prospect.first_name} {prospect.last_name} (ID: {prospect.id})")
+        print(
+            f"✅ Prospector Success: Added {prospect.first_name} {prospect.last_name} (ID: {prospect.id})"
+        )
     else:
         print("❌ Prospector Failed: Could not add prospect.")
         return
@@ -51,7 +50,7 @@ async def main():
     try:
         interaction = await outreach.generate_email_sequence(
             prospect_id=prospect.id,
-            context="Reaching out to discuss usage-based billing challenges."
+            context="Reaching out to discuss usage-based billing challenges.",
         )
         if interaction and interaction.content:
             print(f"✅ Outreach Success: Generated Email Draft (ID: {interaction.id})")
@@ -72,7 +71,7 @@ async def main():
     try:
         feedback = await coach.analyze_call_transcript(transcript)
         if feedback and feedback.content:
-            print(f"✅ Coach Success: Analyzed Transcript")
+            print("✅ Coach Success: Analyzed Transcript")
             print(f"   Feedback: {feedback.content[:50]}...")
         else:
             print("❌ Coach Failed: No feedback generated.")
@@ -80,6 +79,7 @@ async def main():
         print(f"❌ Coach Error: {e}")
 
     print("\n--- SYSTEM HEALTH CHECK COMPLETE ---")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

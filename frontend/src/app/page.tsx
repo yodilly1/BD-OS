@@ -1,15 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import SettingsView from '../components/SettingsView';
-import ProspectorView from '../components/ProspectorView';
-import ResearcherView from '../components/ResearcherView';
-import OutreachView from '../components/OutreachView';
-import ContactsView from '../components/ContactsView';
-import { UserGroupIcon, MagnifyingGlassIcon, ChatBubbleLeftRightIcon, AcademicCapIcon, TableCellsIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect } from "react";
+import SettingsView from "../components/SettingsView";
+import ProspectorView from "../components/ProspectorView";
+import ResearcherView from "../components/ResearcherView";
+import OutreachView from "../components/OutreachView";
+import ContactsView from "../components/ContactsView";
+import {
+  UserGroupIcon,
+  MagnifyingGlassIcon,
+  ChatBubbleLeftRightIcon,
+  AcademicCapIcon,
+  TableCellsIcon,
+  Cog6ToothIcon,
+} from "@heroicons/react/24/outline";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('mission-control');
+  const [activeTab, setActiveTab] = useState("mission-control");
 
   return (
     <main className="flex min-h-screen bg-slate-900 text-white">
@@ -23,32 +30,32 @@ export default function Home() {
             <SidebarItem
               icon={<UserGroupIcon className="w-5 h-5" />}
               label="Mission Control"
-              active={activeTab === 'mission-control'}
-              onClick={() => setActiveTab('mission-control')}
+              active={activeTab === "mission-control"}
+              onClick={() => setActiveTab("mission-control")}
             />
             <SidebarItem
               icon={<TableCellsIcon className="w-5 h-5" />}
               label="Contacts DB"
-              active={activeTab === 'contacts'}
-              onClick={() => setActiveTab('contacts')}
+              active={activeTab === "contacts"}
+              onClick={() => setActiveTab("contacts")}
             />
             <SidebarItem
               icon={<MagnifyingGlassIcon className="w-5 h-5" />}
               label="Prospector"
-              active={activeTab === 'prospector'}
-              onClick={() => setActiveTab('prospector')}
+              active={activeTab === "prospector"}
+              onClick={() => setActiveTab("prospector")}
             />
             <SidebarItem
               icon={<AcademicCapIcon className="w-5 h-5" />}
               label="Researcher"
-              active={activeTab === 'researcher'}
-              onClick={() => setActiveTab('researcher')}
+              active={activeTab === "researcher"}
+              onClick={() => setActiveTab("researcher")}
             />
             <SidebarItem
               icon={<ChatBubbleLeftRightIcon className="w-5 h-5" />}
               label="Outreach"
-              active={activeTab === 'outreach'}
-              onClick={() => setActiveTab('outreach')}
+              active={activeTab === "outreach"}
+              onClick={() => setActiveTab("outreach")}
             />
           </nav>
         </div>
@@ -57,20 +64,20 @@ export default function Home() {
           <SidebarItem
             icon={<Cog6ToothIcon className="w-5 h-5" />}
             label="Settings"
-            active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
+            active={activeTab === "settings"}
+            onClick={() => setActiveTab("settings")}
           />
         </div>
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
-        {activeTab === 'mission-control' && <MissionControl />}
-        {activeTab === 'contacts' && <ContactsView />}
-        {activeTab === 'prospector' && <ProspectorView />}
-        {activeTab === 'researcher' && <ResearcherView />}
-        {activeTab === 'outreach' && <OutreachView />}
-        {activeTab === 'settings' && <SettingsView />}
+        {activeTab === "mission-control" && <MissionControl />}
+        {activeTab === "contacts" && <ContactsView />}
+        {activeTab === "prospector" && <ProspectorView />}
+        {activeTab === "researcher" && <ResearcherView />}
+        {activeTab === "outreach" && <OutreachView />}
+        {activeTab === "settings" && <SettingsView />}
       </div>
     </main>
   );
@@ -80,8 +87,11 @@ function SidebarItem({ icon, label, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${active ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-        }`}
+      className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
+        active
+          ? "bg-blue-600 text-white"
+          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+      }`}
     >
       {icon}
       <span className="font-medium">{label}</span>
@@ -90,22 +100,26 @@ function SidebarItem({ icon, label, active, onClick }: any) {
 }
 
 function MissionControl() {
-  const [stats, setStats] = useState({ companies: 0, prospects: 0, emails_drafted: 0 });
+  const [stats, setStats] = useState({
+    companies: 0,
+    prospects: 0,
+    emails_drafted: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const [compRes, prospRes] = await Promise.all([
-          fetch('http://localhost:8000/api/companies'),
-          fetch('http://localhost:8000/api/prospects')
+          fetch("http://localhost:8000/api/companies"),
+          fetch("http://localhost:8000/api/prospects"),
         ]);
         const companies = await compRes.json();
         const prospects = await prospRes.json();
         setStats({
           companies: companies.length,
           prospects: prospects.length,
-          emails_drafted: 0 // TODO: Add endpoint for interaction stats
+          emails_drafted: 0, // TODO: Add endpoint for interaction stats
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -159,14 +173,10 @@ function MissionControl() {
 function StatCard({ title, value, icon }: any) {
   return (
     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 flex items-center space-x-4">
-      <div className="flex-shrink-0">
-        {icon}
-      </div>
+      <div className="flex-shrink-0">{icon}</div>
       <div>
         <h3 className="text-slate-400 text-sm font-medium">{title}</h3>
-        <p className="text-3xl font-bold mt-1 text-white">
-          {value}
-        </p>
+        <p className="text-3xl font-bold mt-1 text-white">{value}</p>
       </div>
     </div>
   );
@@ -176,14 +186,17 @@ function AgentStatus({ name, status, details }: any) {
   return (
     <div className="flex items-center justify-between p-4 bg-slate-900 rounded-lg">
       <div className="flex items-center space-x-4">
-        <div className={`w-3 h-3 rounded-full ${status === 'Working' ? 'bg-green-500 animate-pulse' : 'bg-slate-500'}`} />
+        <div
+          className={`w-3 h-3 rounded-full ${
+            status === "Working" ? "bg-green-500 animate-pulse" : "bg-slate-500"
+          }`}
+        />
         <span className="font-medium">{name}</span>
       </div>
       <div className="text-slate-400 text-sm">
-        {status} {details && <span className="ml-2 text-slate-500">({details})</span>}
+        {status}{" "}
+        {details && <span className="ml-2 text-slate-500">({details})</span>}
       </div>
     </div>
   );
 }
-
-
