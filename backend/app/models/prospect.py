@@ -10,6 +10,7 @@ class Prospect(SQLModel, table=True):
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
     company_id: Optional[int] = Field(default=None, foreign_key="company.id")
+    campaign_id: Optional[int] = Field(default=None, foreign_key="campaign.id")
     location: Optional[str] = None
     summary: Optional[str] = None
     pain_points: Optional[str] = None

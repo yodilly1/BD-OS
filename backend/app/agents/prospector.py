@@ -230,7 +230,7 @@ class ProspectorAgent:
             all_candidates = [p for sublist in results_nested for p in sublist if p and p.get("linkedin_url")]
             return all_candidates[:limit]
 
-    async def save_candidates(self, candidates: List[dict]) -> List[Prospect]:
+    async def save_candidates(self, candidates: List[dict], campaign_id: int = None) -> List[Prospect]:
         """
         Phase 2: Save selected candidates to DB.
         """
@@ -248,6 +248,12 @@ class ProspectorAgent:
             for p_data in candidates_to_process:
                 existing = session.exec(select(Prospect).where(Prospect.linkedin_url == p_data["linkedin_url"])).first()
                 if existing:
+                    # If prospect exists but isn't in a campaign, and we have one, add them?
+                    # For now, let's just return existing.
+                    # Optional: Update campaign_id if not set?
+                    if campaign_id and not existing.campaign_id:
+                        existing.campaign_id = campaign_id
+                        session.add(existing)
                     saved_prospects.append(existing)
                 else:
                     prospect = Prospect(
@@ -256,6 +262,7 @@ class ProspectorAgent:
                         title=p_data.get("title"), 
                         linkedin_url=p_data.get("linkedin_url"),
                         company_id=p_data.get("company_id"), 
+                        campaign_id=campaign_id,
                         status="New"
                     )
                     session.add(prospect)
@@ -268,12 +275,12 @@ class ProspectorAgent:
                 session.expunge(p)
         return saved_prospects
 
-    async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20) -> List[Prospect]:
+    async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20, campaign_id: int = None) -> List[Prospect]:
         """
         Legacy wrapper: Search + Save immediately.
         """
         candidates = await self.search_candidates(industry, size, keywords, titles, limit)
-        return await self.save_candidates(candidates)
+        return await self.save_candidates(candidates, campaign_id=campaign_id)
 
     async def url_prospecting_flow(self, url: str, titles: List[str] = None) -> List[Prospect]:
         """

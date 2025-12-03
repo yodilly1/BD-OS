@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 import os
 from contextlib import asynccontextmanager
 from app.db import create_db_and_tables
+from app.scheduler import start_scheduler
 from app.agents.prospector import ProspectorAgent
 from app.agents.researcher import ResearcherAgent
 from app.agents.outreach import OutreachAgent
 from app.agents.coach import CoachAgent
 from app.models.company import Company
+from app.models.campaign import Campaign
 from app.models.prospect import Prospect
 from app.models.interaction import Interaction
 from app.db import engine
@@ -20,6 +22,7 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    start_scheduler()
     yield
 
 app = FastAPI(title="BD-OS Backend", version="0.1.0", lifespan=lifespan)
@@ -226,3 +229,59 @@ async def reset_db():
         session.exec(delete(Company))
         session.commit()
     return {"message": "Database reset successfully"}
+
+@app.post("/api/campaigns", response_model=Campaign)
+async def create_campaign(campaign: Campaign):
+    with Session(engine) as session:
+        session.add(campaign)
+        session.commit()
+        session.refresh(campaign)
+        return campaign
+
+@app.get("/api/campaigns", response_model=List[Campaign])
+async def get_campaigns():
+    with Session(engine) as session:
+        return session.exec(select(Campaign)).all()
+
+@app.get("/api/campaigns/{campaign_id}", response_model=dict)
+async def get_campaign_details(campaign_id: int):
+    with Session(engine) as session:
+        campaign = session.get(Campaign, campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Get prospects for this campaign
+        prospects = session.exec(select(Prospect).where(Prospect.campaign_id == campaign_id)).all()
+        
+        return {
+            "campaign": campaign,
+            "prospects": prospects
+        }
+
+@app.post("/api/campaigns/{campaign_id}/add-prospects")
+async def add_prospects_to_campaign(campaign_id: int, prospect_ids: List[int]):
+    with Session(engine) as session:
+        campaign = session.get(Campaign, campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+            
+        for pid in prospect_ids:
+            prospect = session.get(Prospect, pid)
+            if prospect:
+                prospect.campaign_id = campaign_id
+                session.add(prospect)
+        session.commit()
+    return {"message": f"Added {len(prospect_ids)} prospects to campaign"}
+
+@app.post("/api/campaigns/{campaign_id}/toggle-autopilot")
+async def toggle_autopilot(campaign_id: int, enabled: bool):
+    with Session(engine) as session:
+        campaign = session.get(Campaign, campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        campaign.auto_pilot_enabled = enabled
+        session.add(campaign)
+        session.commit()
+        session.refresh(campaign)
+        return campaign

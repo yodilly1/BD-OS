@@ -6,7 +6,8 @@ import ProspectorView from '../components/ProspectorView';
 import ResearcherView from '../components/ResearcherView';
 import OutreachView from '../components/OutreachView';
 import ContactsView from '../components/ContactsView';
-import { UserGroupIcon, MagnifyingGlassIcon, ChatBubbleLeftRightIcon, AcademicCapIcon, TableCellsIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import CampaignView from '../components/CampaignView';
+import { UserGroupIcon, MagnifyingGlassIcon, ChatBubbleLeftRightIcon, AcademicCapIcon, TableCellsIcon, Cog6ToothIcon, FlagIcon } from '@heroicons/react/24/outline';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('mission-control');
@@ -25,6 +26,12 @@ export default function Home() {
               label="Mission Control"
               active={activeTab === 'mission-control'}
               onClick={() => setActiveTab('mission-control')}
+            />
+            <SidebarItem
+              icon={<FlagIcon className="w-5 h-5" />}
+              label="Campaigns"
+              active={activeTab === 'campaigns'}
+              onClick={() => setActiveTab('campaigns')}
             />
             <SidebarItem
               icon={<TableCellsIcon className="w-5 h-5" />}
@@ -66,6 +73,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex-1 p-8">
         {activeTab === 'mission-control' && <MissionControl />}
+        {activeTab === 'campaigns' && <CampaignView />}
         {activeTab === 'contacts' && <ContactsView />}
         {activeTab === 'prospector' && <ProspectorView />}
         {activeTab === 'researcher' && <ResearcherView />}
