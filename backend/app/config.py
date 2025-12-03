@@ -10,8 +10,8 @@ VAYU_CONTEXT = {
         "Built for usage-based and hybrid pricing models (not just simple subscriptions).",
         "Real-time metering and mediation engine.",
         "Seamless integration with CRM (Salesforce/HubSpot) and ERP (NetSuite/QuickBooks).",
-        "Automated revenue recognition and reporting."
+        "Automated revenue recognition and reporting.",
     ],
     "target_audience": "B2B SaaS companies, especially those in AI, API-first, or Infrastructure sectors.",
-    "tone": "Professional, innovative, helpful, and direct."
+    "tone": "Professional, innovative, helpful, and direct.",
 }

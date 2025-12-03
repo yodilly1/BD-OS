@@ -1,8 +1,10 @@
-import google.generativeai as genai
 import os
+
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
+
 
 class GeminiClient:
     def __init__(self):
@@ -10,12 +12,14 @@ class GeminiClient:
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.model = genai.GenerativeModel("gemini-2.5-flash")
 
     async def generate_content(self, prompt: str) -> str:
         # --- MOCK IMPLEMENTATION ---
         if os.getenv("GEMINI_API_KEY") == "mock-key":
-            print(f"[Gemini] MOCK: Simulating content generation for prompt: {prompt[:50]}...")
+            print(
+                f"[Gemini] MOCK: Simulating content generation for prompt: {prompt[:50]}..."
+            )
             if "List of companies" in prompt:
                 return """
                 ```json
@@ -30,6 +34,7 @@ class GeminiClient:
         # --- END MOCK ---
         try:
             import asyncio
+
             response = await asyncio.to_thread(self.model.generate_content, prompt)
             return response.text
         except Exception as e:
