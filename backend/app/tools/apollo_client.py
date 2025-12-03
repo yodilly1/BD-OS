@@ -107,11 +107,10 @@ class ApolloClient:
                 person = p
                 break
         
-        # If no exact match, take the first one (fallback) or return None?
-        # Let's take the first one if no match, but log warning
+        # If no exact match, return None to trigger fallback (e.g. LeadMagic)
         if not person:
-            print(f"WARNING: No exact name match for {name} in top results. Using first result: {people[0].get('name')}")
-            person = people[0]
+            print(f"WARNING: No exact name match for {name} in top results. Returning None.")
+            return {}
         
         # 2. Check if we already have email
         email = person.get("email")
