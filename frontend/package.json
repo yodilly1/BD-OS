@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.6",
     "@heroicons/react": "^2.2.0",
     "next": "16.0.4",
     "react": "19.2.0",
