@@ -134,6 +134,13 @@ async def manual_add(request: ManualAddRequest):
             raise HTTPException(
                 status_code=404, detail="Could not find prospect with provided details."
             )
+        
+        # Automatically enrich
+        try:
+            prospect = await researcher.enrich_prospect(prospect.id)
+        except Exception as e:
+            print(f"Error auto-enriching manual add: {e}")
+            
         return prospect
     except Exception as e:
         traceback.print_exc()

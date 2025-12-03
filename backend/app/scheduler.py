@@ -3,11 +3,13 @@ from app.db import engine
 from sqlmodel import Session, select
 from app.models.campaign import Campaign
 from app.agents.prospector import ProspectorAgent
+from app.agents.researcher import ResearcherAgent
 from datetime import datetime
 import asyncio
 
 scheduler = AsyncIOScheduler()
 prospector = ProspectorAgent()
+researcher = ResearcherAgent()
 
 async def run_auto_pilot():
     print("Running Auto-Pilot...")
@@ -42,6 +44,15 @@ async def run_auto_pilot():
                 )
                 
                 print(f"Added {len(new_prospects)} prospects to {campaign.name}")
+                
+                # Automatically Enrich new prospects
+                if new_prospects:
+                    print(f"Enriching {len(new_prospects)} new prospects...")
+                    for p in new_prospects:
+                        try:
+                            await researcher.enrich_prospect(p.id)
+                        except Exception as e:
+                            print(f"Error enriching prospect {p.id}: {e}")
                 
                 # Update last run time
                 campaign.last_run_at = datetime.utcnow()
