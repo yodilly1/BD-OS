@@ -158,8 +158,9 @@ class ResearcherAgent:
                      session.add(prospect)
                      session.commit()
                      session.refresh(prospect)
-                     session.expunge(prospect)
-                     return prospect
+                     # Continue to AI Inference instead of returning
+                     # session.expunge(prospect)
+                     # return prospect
 
             # If we still don't have email, try B2B profile search
             if prospect.linkedin_url:
