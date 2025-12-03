@@ -10,3 +10,9 @@ class DeepSearchRequest(BaseModel):
 
 class UrlSearchRequest(BaseModel):
     url: str
+    titles: List[str] = None
+
+class ManualAddRequest(BaseModel):
+    first_name: str
+    last_name: str
+    domain: str

@@ -56,9 +56,13 @@ class ProspectorAgent:
                             companies.append(existing)
                             continue
 
+                        domain = item.get("domain", "")
+                        if not domain:
+                            continue
+
                         company = Company(
                             name=item.get("name"),
-                            domain=item.get("domain", ""),
+                            domain=domain,
                             description=item.get("description")
                         )
                         session.add(company)
@@ -132,28 +136,33 @@ class ProspectorAgent:
                 
             return prospects
 
-    async def _find_linkedin_url(self, first_name: str, last_name: str, company_name: str) -> str:
+    async def _find_linkedin_url(self, first_name: str, last_name: str, company_name: str) -> dict:
         """
         Finds the LinkedIn URL for a specific person using Serper.
+        Returns a dict with url, title, and snippet.
         """
         query = f"site:linkedin.com/in/ {first_name} {last_name} {company_name}"
         try:
             results = await self.serper.search(query)
             if "organic" in results and len(results["organic"]) > 0:
-                return results["organic"][0].get("link", "")
+                item = results["organic"][0]
+                return {
+                    "url": item.get("link", ""),
+                    "title": item.get("title", ""),
+                    "snippet": item.get("snippet", "")
+                }
         except Exception as e:
             print(f"Error finding LinkedIn URL for {first_name} {last_name}: {e}")
-        return ""
+        return {"url": "", "title": "", "snippet": ""}
 
-    async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20) -> List[Prospect]:
+    async def search_candidates(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20) -> List[dict]:
         """
-        Executes a deep prospecting workflow.
-        Refactored to use a single session and handle detached instances correctly.
+        Phase 1: Search for candidates but DO NOT save to DB.
+        Returns a list of candidate dictionaries.
         """
         # SAFEGUARDS
         MAX_COMPANIES = 10
         MAX_PROSPECTS_PER_COMPANY = 5
-        MAX_TOTAL_PROSPECTS = limit
         
         size_str = f"{size}" if size.lower() != "any size" else ""
         queries = [
@@ -162,8 +171,6 @@ class ProspectorAgent:
             f"Competitors of {keywords} {industry} companies"
         ]
         
-        all_prospects = []
-
         with Session(engine) as session:
             all_companies = []
             seen_domains = set()
@@ -178,89 +185,100 @@ class ProspectorAgent:
                         all_companies.append(attached_company)
                         seen_domains.add(attached_company.domain)
 
-            # 1. Gather all data concurrently (No DB access here)
+            # Gather data concurrently
             async def gather_company_data(company):
                 if not company.domain: return []
                 
-                # If titles are provided, use role-finder for better accuracy
+                candidates = []
                 if titles:
-                    # print(f"Searching for roles {titles} at {company.name}")
+                    # Search for EACH title
                     tasks = [self.leadmagic.find_person_by_role(company.domain, title) for title in titles]
                     results = await asyncio.gather(*tasks)
-                    # Filter out empty results and duplicates
+                    
                     seen_urls = set()
-                    candidates = []
                     for res in results:
                         if res and res.get("linkedin_url") and res.get("linkedin_url") not in seen_urls:
                             candidates.append(res)
                             seen_urls.add(res.get("linkedin_url"))
                 else:
-                    # Fallback to general employee search
                     try:
                         employees = await self.leadmagic.find_employees(company.domain)
+                        candidates = employees[:MAX_PROSPECTS_PER_COMPANY]
                     except Exception as e:
                         print(f"Error finding employees for {company.name}: {e}")
                         return []
-                    candidates = employees[:MAX_PROSPECTS_PER_COMPANY]
 
                 candidates = candidates[:MAX_PROSPECTS_PER_COMPANY]
 
                 async def process_candidate(emp):
                     # If we already have linkedin_url (from role-finder), use it
                     if emp.get("linkedin_url"):
-                        return {**emp, "company_id": company.id}
+                        return {**emp, "company_id": company.id, "company_name": company.name}
                     
                     # Otherwise find it (for generic search)
                     first_name, last_name = emp.get("first_name", ""), emp.get("last_name", "")
-                    linkedin_url = await self._find_linkedin_url(first_name, last_name, company.name)
-                    return {**emp, "linkedin_url": linkedin_url, "company_id": company.id}
+                    serper_data = await self._find_linkedin_url(first_name, last_name, company.name)
+                    linkedin_url = serper_data.get("url")
+                    return {**emp, "linkedin_url": linkedin_url, "company_id": company.id, "company_name": company.name}
 
                 return await asyncio.gather(*[process_candidate(c) for c in candidates])
 
-            # Execute gathering
             tasks = [gather_company_data(c) for c in all_companies]
             results_nested = await asyncio.gather(*tasks)
             
             # Flatten results
-            all_prospect_data = [p for sublist in results_nested for p in sublist if p and p.get("linkedin_url")]
+            all_candidates = [p for sublist in results_nested for p in sublist if p and p.get("linkedin_url")]
+            return all_candidates[:limit]
 
-            # 2. Save to DB sequentially (in a separate thread to avoid blocking event loop)
-            def save_to_db(prospect_data_list):
-                saved_prospects = []
-                with Session(engine) as session:
-                    for p_data in prospect_data_list:
-                        if len(saved_prospects) >= MAX_TOTAL_PROSPECTS: break
-                        
-                        existing = session.exec(select(Prospect).where(Prospect.linkedin_url == p_data["linkedin_url"])).first()
-                        if existing:
-                            saved_prospects.append(existing)
-                        else:
-                            prospect = Prospect(
-                                first_name=p_data.get("first_name"), 
-                                last_name=p_data.get("last_name"),
-                                title=p_data.get("title"), 
-                                linkedin_url=p_data.get("linkedin_url"),
-                                company_id=p_data.get("company_id"), 
-                                status="New"
-                            )
-                            session.add(prospect)
-                            saved_prospects.append(prospect)
-                    
-                    session.commit()
-                    
-                    for p in saved_prospects:
-                        session.refresh(p)
-                        session.expunge(p)
-                return saved_prospects
+    async def save_candidates(self, candidates: List[dict]) -> List[Prospect]:
+        """
+        Phase 2: Save selected candidates to DB.
+        """
+        saved_prospects = []
+        
+        # De-duplicate candidates by linkedin_url
+        unique_candidates = {}
+        for c in candidates:
+            if c.get("linkedin_url"):
+                unique_candidates[c["linkedin_url"]] = c
+        
+        candidates_to_process = list(unique_candidates.values())
 
-            final_prospects = await asyncio.to_thread(save_to_db, all_prospect_data)
-                
-            return final_prospects
+        with Session(engine) as session:
+            for p_data in candidates_to_process:
+                existing = session.exec(select(Prospect).where(Prospect.linkedin_url == p_data["linkedin_url"])).first()
+                if existing:
+                    saved_prospects.append(existing)
+                else:
+                    prospect = Prospect(
+                        first_name=p_data.get("first_name"), 
+                        last_name=p_data.get("last_name"),
+                        title=p_data.get("title"), 
+                        linkedin_url=p_data.get("linkedin_url"),
+                        company_id=p_data.get("company_id"), 
+                        status="New"
+                    )
+                    session.add(prospect)
+                    saved_prospects.append(prospect)
+            
+            session.commit()
+            
+            for p in saved_prospects:
+                session.refresh(p)
+                session.expunge(p)
+        return saved_prospects
+
+    async def deep_prospecting_flow(self, industry: str, size: str, keywords: str, titles: List[str], limit: int = 20) -> List[Prospect]:
+        """
+        Legacy wrapper: Search + Save immediately.
+        """
+        candidates = await self.search_candidates(industry, size, keywords, titles, limit)
+        return await self.save_candidates(candidates)
 
     async def url_prospecting_flow(self, url: str, titles: List[str] = None) -> List[Prospect]:
         """
         Executes a prospecting workflow based on a company URL.
-        Refactored to use a single session and handle detached instances correctly.
+        Fixed to handle multiple titles correctly.
         """
         # SAFEGUARDS
         MAX_PROSPECTS = 10
@@ -278,11 +296,10 @@ class ProspectorAgent:
 
             candidates = []
             if titles:
-                # Use role-finder if titles are provided
+                # Use role-finder for EACH title
                 print(f"Searching for roles {titles} at {domain}")
                 tasks = [self.leadmagic.find_person_by_role(domain, title) for title in titles]
                 results = await asyncio.gather(*tasks)
-                print(f"Role search results: {results}")
                 
                 seen_urls = set()
                 for res in results:
@@ -303,7 +320,6 @@ class ProspectorAgent:
 
             company_name_for_search = company.name
             async def process_candidate(emp):
-                # If we already have linkedin_url (from role-finder), use it
                 if emp.get("linkedin_url"):
                      return {**emp, "company_id": company.id}
 
@@ -311,38 +327,132 @@ class ProspectorAgent:
                 last_name = emp.get("last_name", "")
                 if not first_name or not last_name:
                     return None
-                linkedin_url = await self._find_linkedin_url(first_name, last_name, company_name_for_search)
-                return {**emp, "linkedin_url": linkedin_url}
+                linkedin_data = await self._find_linkedin_url(first_name, last_name, company_name_for_search)
+                return {**emp, "linkedin_url": linkedin_data.get("url"), "company_id": company.id}
             
             enriched_candidates = await asyncio.gather(*[process_candidate(e) for e in candidates])
+            
+            # Filter valid candidates
+            valid_candidates = [c for c in enriched_candidates if c and c.get("linkedin_url")]
+            
+            # Reuse save_candidates logic (but we need to pass dicts)
+            # Since save_candidates expects dicts, we can just pass valid_candidates
+            # But we need to ensure they have company_id
+            
+            # Actually, let's just use save_candidates directly to avoid code duplication
+            # But we need to be careful about the session. 
+            # save_candidates opens its own session.
+            pass 
+        
+        # Call save_candidates outside the session block
+        return await self.save_candidates(valid_candidates)
 
-            new_prospects = []
-            for emp in enriched_candidates:
-                if not emp: continue
+    async def manual_prospecting_flow(self, first_name: str, last_name: str, domain: str) -> Prospect:
+        """
+        Manually adds a prospect using Name + Domain.
+        Uses Email Finder -> B2B Profile -> Profile Search chain.
+        """
+        with Session(engine) as session:
+            # 1. Ensure Company Exists
+            company = session.exec(select(Company).where(Company.domain.contains(domain))).first()
+            if not company:
+                name = domain.split(".")[0].capitalize()
+                company = Company(name=name, domain=domain, description=f"Company at {domain}")
+                session.add(company)
+                session.commit()
+                session.refresh(company)
 
-                linkedin_url = emp.get("linkedin_url", "")
-                if not linkedin_url: continue
+            # 2. Try to find Email first
+            print(f"Manual Add: Finding email for {first_name} {last_name} @ {domain}...")
+            email_data = await self.leadmagic.find_email(first_name, last_name, domain)
+            email = email_data.get("email")
+            
+            linkedin_url = ""
+            
+            if email:
+                print(f"Manual Add: Found email {email}. Finding LinkedIn profile...")
+                # 3. Use Email to find LinkedIn URL
+                profile_data = await self.leadmagic.find_person_by_email(work_email=email)
+                linkedin_url = profile_data.get("linkedin_url", "")
+            
+            serper_title_fallback = ""
 
-                existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first()
-                if existing:
-                    new_prospects.append(existing)
-                    continue
+            if not linkedin_url:
+                print("Manual Add: No LinkedIn URL found via Email. Trying Serper...")
+                # Fallback: Serper Search
+                serper_data = await self._find_linkedin_url(first_name, last_name, company.name)
+                linkedin_url = serper_data.get("url")
+                
+                # Try to extract title from Serper result title (e.g. "Name - Title - Company")
+                raw_title = serper_data.get("title", "")
+                if " - " in raw_title:
+                    parts = raw_title.split(" - ")
+                    if len(parts) >= 2:
+                        # Take the second part as potential title
+                        candidate_title = parts[1].strip()
+                        # Clean up common suffixes
+                        candidate_title = candidate_title.replace("| LinkedIn", "").replace("...", "").strip()
+                        serper_title_fallback = candidate_title
 
-                prospect = Prospect(
-                    first_name=emp.get("first_name", ""),
-                    last_name=emp.get("last_name", ""),
-                    title=emp.get("title", ""),
-                    linkedin_url=linkedin_url,
-                    company_id=company.id,
-                    status="New"
-                )
-                session.add(prospect)
-                new_prospects.append(prospect)
+            if not linkedin_url:
+                print("Manual Add: Could not find LinkedIn URL. Aborting.")
+                return None
 
+            # 4. Enrich Profile (Title, Company, Mobile)
+            print(f"Manual Add: Enriching profile for {linkedin_url}...")
+            
+            # Use profile-search to get full details (Title, Company, Mobile)
+            # This is better than just mobile-finder
+            profile_data = await self.leadmagic.find_person(linkedin_url)
+            
+            phone = profile_data.get("phone")
+            title = profile_data.get("title")
+            
+            if not title or title == "Unknown":
+                if serper_title_fallback:
+                    title = serper_title_fallback
+                else:
+                    title = "Unknown"
+            
+            company_name_found = profile_data.get("company")
+            
+            # If we found a company name and our current company is just a placeholder, update it
+            if company_name_found and company.name == domain.split(".")[0].capitalize():
+                company.name = company_name_found
+                session.add(company)
+                session.commit()
+                session.refresh(company)
+
+            # 5. Check if exists
+            existing = session.exec(select(Prospect).where(Prospect.linkedin_url == linkedin_url)).first()
+            if existing:
+                # Update existing with new info if missing
+                if not existing.email and email:
+                    existing.email = email
+                if not existing.phone and phone:
+                    existing.phone = phone
+                if existing.title == "Unknown" and title != "Unknown":
+                    existing.title = title
+                
+                session.add(existing)
+                session.commit()
+                session.refresh(existing)
+                session.expunge(existing)
+                return existing
+
+            # 6. Create Prospect
+            prospect = Prospect(
+                first_name=first_name,
+                last_name=last_name,
+                title=title,
+                email=email,
+                phone=phone,
+                linkedin_url=linkedin_url,
+                company_id=company.id,
+                status="New"
+            )
+            session.add(prospect)
             session.commit()
-
-            for p in new_prospects:
-                session.refresh(p)
-                session.expunge(p)
-
-            return new_prospects
+            session.refresh(prospect)
+            session.expunge(prospect)
+            return prospect

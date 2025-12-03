@@ -1,19 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserGroupIcon, EnvelopeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { UserGroupIcon, EnvelopeIcon, ChatBubbleLeftRightIcon, PhoneIcon } from '@heroicons/react/24/outline';
 
 export default function ContactsView() {
     const [companies, setCompanies] = useState<any[]>([]);
     const [prospects, setProspects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('newest');
+
     const fetchData = async () => {
         setLoading(true);
         try {
             const [compRes, prospRes] = await Promise.all([
                 fetch('http://localhost:8000/api/companies'),
-                fetch('http://localhost:8000/api/prospects')
+                fetch(`http://localhost:8000/api/prospects?sort_by=${sortBy}&search=${searchTerm}`)
             ]);
             setCompanies(await compRes.json());
             setProspects(await prospRes.json());
@@ -25,14 +28,35 @@ export default function ContactsView() {
     };
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        const timer = setTimeout(() => {
+            fetchData();
+        }, 500); // Debounce search
+        return () => clearTimeout(timer);
+    }, [searchTerm, sortBy]);
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-3xl font-bold">Contacts Database</h2>
-                <button onClick={fetchData} className="text-blue-400 hover:text-blue-300 text-sm">Refresh Data</button>
+
+                <div className="flex gap-4 w-full md:w-auto">
+                    <input
+                        type="text"
+                        placeholder="Search prospects..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+                    />
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <button onClick={fetchData} className="text-blue-400 hover:text-blue-300 text-sm whitespace-nowrap">Refresh Data</button>
+                </div>
             </div>
 
             {/* Companies Section */}
@@ -77,7 +101,9 @@ export default function ContactsView() {
                                 <th className="px-6 py-3">Name</th>
                                 <th className="px-6 py-3">Title</th>
                                 <th className="px-6 py-3">Company</th>
-                                <th className="px-6 py-3">Contact</th>
+                                <th className="px-6 py-3">Email</th>
+                                <th className="px-6 py-3">Phone</th>
+                                <th className="px-6 py-3">LinkedIn</th>
                                 <th className="px-6 py-3">Status</th>
                             </tr>
                         </thead>
@@ -89,9 +115,26 @@ export default function ContactsView() {
                                         <td className="px-6 py-4 font-medium text-white">{prospect.first_name} {prospect.last_name}</td>
                                         <td className="px-6 py-4">{prospect.title}</td>
                                         <td className="px-6 py-4">{company?.name || '-'}</td>
-                                        <td className="px-6 py-4 space-y-1">
-                                            {prospect.email && <div className="flex items-center space-x-2"><EnvelopeIcon className="w-4 h-4" /> <span>{prospect.email}</span></div>}
-                                            {prospect.linkedin_url && <a href={prospect.linkedin_url} target="_blank" className="text-blue-400 hover:underline block">LinkedIn</a>}
+                                        <td className="px-6 py-4 text-slate-300">
+                                            {prospect.email ? (
+                                                <div className="flex items-center space-x-2">
+                                                    <EnvelopeIcon className="w-4 h-4 text-slate-500" />
+                                                    <span>{prospect.email}</span>
+                                                </div>
+                                            ) : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-300">
+                                            {prospect.phone ? (
+                                                <div className="flex items-center space-x-2">
+                                                    <PhoneIcon className="w-4 h-4 text-slate-500" />
+                                                    <span>{prospect.phone}</span>
+                                                </div>
+                                            ) : '-'}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {prospect.linkedin_url ? (
+                                                <a href={prospect.linkedin_url} target="_blank" className="text-blue-400 hover:underline">View</a>
+                                            ) : '-'}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs ${prospect.status === 'New' ? 'bg-blue-900 text-blue-200' : 'bg-green-900 text-green-200'

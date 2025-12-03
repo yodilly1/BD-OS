@@ -79,8 +79,9 @@ class OutreachAgent:
             critique_prompt = f"""
             Critique this email sequence. Is it too long? Too salesy? 
             Does it effectively use the company context to make it personalized?
-            If it's good, just return the original text. 
-            If it needs improvement, rewrite it to be punchier and more specific.
+            
+            Rewrite it to be punchier and more specific.
+            IMPORTANT: Return ONLY the final email sequence. Do NOT include your critique or analysis.
             
             Draft:
             {draft}

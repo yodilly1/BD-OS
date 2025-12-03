@@ -44,6 +44,15 @@ class LeadMagicClient:
                         raw_data.get("phone") or 
                         raw_data.get("mobile")
                     ),
+                    "title": (
+                        raw_data.get("job_title") or
+                        raw_data.get("title") or
+                        raw_data.get("headline")
+                    ),
+                    "company": (
+                        raw_data.get("company_name") or
+                        raw_data.get("company")
+                    ),
                     "raw": raw_data  # Keep full response for debugging
                 }
                 

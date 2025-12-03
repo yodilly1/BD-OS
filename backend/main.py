@@ -108,7 +108,25 @@ async def get_job_status(job_id: str):
 @app.post("/api/prospect/url-search", response_model=List[Prospect])
 async def url_search(request: UrlSearchRequest):
     try:
-        return await prospector.url_prospecting_flow(request.url)
+        return await prospector.url_prospecting_flow(request.url, request.titles)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+from app.models.request import ManualAddRequest
+
+@app.post("/api/prospect/manual-add", response_model=Prospect)
+async def manual_add(request: ManualAddRequest):
+    try:
+        prospect = await prospector.manual_prospecting_flow(
+            request.first_name, 
+            request.last_name, 
+            request.domain
+        )
+        if not prospect:
+            raise HTTPException(status_code=404, detail="Could not find prospect with provided details.")
+        return prospect
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -139,10 +157,60 @@ async def get_companies():
     with Session(engine) as session:
         return session.exec(select(Company)).all()
 
+@app.post("/api/prospect/search-candidates", response_model=dict)
+async def search_candidates(request: DeepSearchRequest, background_tasks: BackgroundTasks):
+    """
+    Phase 1: Search for candidates but do not save.
+    """
+    job = create_job()
+    
+    async def run_search(job_id: str, req: DeepSearchRequest):
+        update_job(job_id, JobStatus.RUNNING)
+        try:
+            results = await prospector.search_candidates(
+                req.industry, 
+                req.size, 
+                req.keywords, 
+                req.titles,
+                req.limit
+            )
+            update_job(job_id, JobStatus.COMPLETED, result=results)
+        except Exception as e:
+            print(f"Job {job_id} failed: {e}")
+            update_job(job_id, JobStatus.FAILED, error=str(e))
+
+    background_tasks.add_task(run_search, job.id, request)
+    return {"job_id": job.id}
+
+@app.post("/api/prospect/save-candidates", response_model=List[Prospect])
+async def save_candidates(candidates: List[dict]):
+    """
+    Phase 2: Save selected candidates to DB.
+    """
+    try:
+        return await prospector.save_candidates(candidates)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/prospects", response_model=List[Prospect])
-async def get_prospects():
+async def get_prospects(sort_by: str = "newest", search: str = None):
     with Session(engine) as session:
-        return session.exec(select(Prospect)).all()
+        query = select(Prospect)
+        
+        if search:
+            search_term = f"%{search}%"
+            query = query.where(
+                (Prospect.first_name.ilike(search_term)) | 
+                (Prospect.last_name.ilike(search_term)) |
+                (Prospect.title.ilike(search_term))
+            )
+            
+        if sort_by == "newest":
+            query = query.order_by(Prospect.id.desc())
+            
+        return session.exec(query).all()
 
 @app.post("/api/coach/analyze", response_model=Interaction)
 async def analyze_call(transcript: str):
