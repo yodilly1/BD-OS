@@ -103,11 +103,17 @@ class ResearcherAgent:
             )
             
             if apollo_data.get("email"):
-                print("Researcher: Found email via Apollo!")
+                print(f"Researcher: Found email via Apollo: {apollo_data.get('email')}")
+                print(f"Researcher: Apollo Data Keys: {list(apollo_data.keys())}")
+                print(f"Researcher: Apollo Title: {apollo_data.get('title')}")
+                print(f"Researcher: Apollo Phone: {apollo_data.get('phone')}")
+                print(f"Researcher: Apollo Phone Numbers: {apollo_data.get('phone_numbers')}")
+
                 prospect.email = apollo_data.get("email")
                 prospect.linkedin_url = apollo_data.get("linkedin_url") or prospect.linkedin_url
                 prospect.title = apollo_data.get("title") or prospect.title
                 prospect.phone = apollo_data.get("phone_numbers", [{}])[0].get("sanitized_number") if apollo_data.get("phone_numbers") else None
+                
                 # Also try direct phone field if phone_numbers list is empty/different structure
                 if not prospect.phone:
                     prospect.phone = apollo_data.get("phone") or prospect.phone
@@ -123,10 +129,13 @@ class ResearcherAgent:
                         if lm_phone:
                             print(f"Researcher: Found phone via LeadMagic: {lm_phone}")
                             prospect.phone = lm_phone
+                        else:
+                            print("Researcher: LeadMagic returned no phone number.")
                     except Exception as e:
                         print(f"Researcher: Error fetching LeadMagic phone: {e}")
 
                 # Save Apollo/LeadMagic data
+                print(f"Researcher: Saving Prospect - Title: {prospect.title}, Phone: {prospect.phone}")
                 session.add(prospect)
                 session.commit()
                 session.refresh(prospect)
