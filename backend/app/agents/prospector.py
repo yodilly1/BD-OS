@@ -528,6 +528,19 @@ class ProspectorAgent:
             phone = profile_data.get("phone")
             title = profile_data.get("title")
 
+            # Fallback: If phone is missing, try Mobile Finder explicitly
+            if not phone:
+                print("Manual Add: Phone missing from Profile Search. Trying Mobile Finder...")
+                try:
+                    phone = await self.leadmagic.find_mobile_number(
+                        linkedin_url=linkedin_url,
+                        work_email=email
+                    )
+                    if phone:
+                        print(f"Manual Add: Found phone via Mobile Finder: {phone}")
+                except Exception as e:
+                    print(f"Manual Add: Error fetching mobile number: {e}")
+
             if not title or title == "Unknown":
                 if serper_title_fallback:
                     title = serper_title_fallback

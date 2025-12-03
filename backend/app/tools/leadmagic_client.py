@@ -47,6 +47,7 @@ class LeadMagicClient:
                         raw_data.get("job_title")
                         or raw_data.get("title")
                         or raw_data.get("headline")
+                        or raw_data.get("professional_title")
                     ),
                     "company": (
                         raw_data.get("company_name") or raw_data.get("company")
