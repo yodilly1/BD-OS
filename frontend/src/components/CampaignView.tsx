@@ -53,7 +53,7 @@ export default function CampaignView() {
 
     const fetchCampaigns = async () => {
         try {
-            const res = await fetch('http://localhost:8000/api/campaigns');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/campaigns`);
             const data = await res.json();
             setCampaigns(data);
         } catch (error) {
@@ -64,7 +64,7 @@ export default function CampaignView() {
     const fetchCampaignDetails = async (id: number) => {
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/campaigns/${id}`);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/campaigns/${id}`);
             const data = await res.json();
             setCampaignProspects(data.prospects);
         } catch (error) {
@@ -85,7 +85,7 @@ export default function CampaignView() {
         };
 
         try {
-            const res = await fetch('http://localhost:8000/api/campaigns', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/campaigns`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -102,7 +102,7 @@ export default function CampaignView() {
 
     const toggleAutoPilot = async (campaign: Campaign) => {
         try {
-            const res = await fetch(`http://localhost:8000/api/campaigns/${campaign.id}/toggle-autopilot?enabled=${!campaign.auto_pilot_enabled}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/campaigns/${campaign.id}/toggle-autopilot?enabled=${!campaign.auto_pilot_enabled}`, {
                 method: 'POST'
             });
             if (res.ok) {
@@ -194,8 +194,8 @@ export default function CampaignView() {
                             <button
                                 onClick={() => toggleAutoPilot(selectedCampaign)}
                                 className={`px-4 py-2 rounded-lg font-medium text-sm ${selectedCampaign.auto_pilot_enabled
-                                        ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                                        : 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                                    ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                                    : 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                                     }`}
                             >
                                 {selectedCampaign.auto_pilot_enabled ? 'Pause Auto-Pilot' : 'Enable Auto-Pilot'}

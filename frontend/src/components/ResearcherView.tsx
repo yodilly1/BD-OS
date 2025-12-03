@@ -13,10 +13,10 @@ export default function ResearcherView() {
 
   useEffect(() => {
     // Fetch available data for dropdowns
-    fetch("http://localhost:8000/api/companies")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`)
       .then((res) => res.json())
       .then(setCompanies);
-    fetch("http://localhost:8000/api/prospects")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prospects`)
       .then((res) => res.json())
       .then(setProspects);
   }, []);
@@ -27,8 +27,8 @@ export default function ResearcherView() {
     try {
       const endpoint =
         type === "company"
-          ? `http://localhost:8000/api/enrich/company?company_id=${selectedId}`
-          : `http://localhost:8000/api/enrich/prospect?prospect_id=${selectedId}`;
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/enrich/company?company_id=${selectedId}`
+          : `${process.env.NEXT_PUBLIC_API_URL}/api/enrich/prospect?prospect_id=${selectedId}`;
 
       const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json();
@@ -57,11 +57,10 @@ export default function ResearcherView() {
               setSelectedId("");
               setResult(null);
             }}
-            className={`px-4 py-2 rounded-lg ${
-              type === "company"
+            className={`px-4 py-2 rounded-lg ${type === "company"
                 ? "bg-purple-600 text-white"
                 : "bg-slate-700 text-slate-300"
-            }`}
+              }`}
           >
             Enrich Company
           </button>
@@ -71,11 +70,10 @@ export default function ResearcherView() {
               setSelectedId("");
               setResult(null);
             }}
-            className={`px-4 py-2 rounded-lg ${
-              type === "prospect"
+            className={`px-4 py-2 rounded-lg ${type === "prospect"
                 ? "bg-purple-600 text-white"
                 : "bg-slate-700 text-slate-300"
-            }`}
+              }`}
           >
             Enrich Prospect
           </button>
@@ -92,16 +90,16 @@ export default function ResearcherView() {
             </option>
             {type === "company"
               ? companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))
               : prospects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.first_name} {p.last_name} (
-                    {companies.find((c) => c.id === p.company_id)?.name})
-                  </option>
-                ))}
+                <option key={p.id} value={p.id}>
+                  {p.first_name} {p.last_name} (
+                  {companies.find((c) => c.id === p.company_id)?.name})
+                </option>
+              ))}
           </select>
           <button
             onClick={handleEnrich}

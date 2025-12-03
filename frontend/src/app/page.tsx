@@ -97,8 +97,8 @@ function SidebarItem({ icon, label, active, onClick }: any) {
     <button
       onClick={onClick}
       className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${active
-          ? "bg-blue-600 text-white"
-          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+        ? "bg-blue-600 text-white"
+        : "text-slate-400 hover:bg-slate-800 hover:text-white"
         }`}
     >
       {icon}
@@ -119,8 +119,8 @@ function MissionControl() {
     const fetchStats = async () => {
       try {
         const [compRes, prospRes] = await Promise.all([
-          fetch("http://localhost:8000/api/companies"),
-          fetch("http://localhost:8000/api/prospects"),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prospects`),
         ]);
         const companies = await compRes.json();
         const prospects = await prospRes.json();

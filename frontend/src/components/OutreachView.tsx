@@ -13,10 +13,10 @@ export default function OutreachView() {
   const [mode, setMode] = useState<"email" | "linkedin">("email");
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/companies")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`)
       .then((res) => res.json())
       .then(setCompanies);
-    fetch("http://localhost:8000/api/prospects")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prospects`)
       .then((res) => res.json())
       .then(setProspects);
   }, []);
@@ -27,12 +27,12 @@ export default function OutreachView() {
     try {
       const endpoint =
         mode === "email"
-          ? `http://localhost:8000/api/outreach/generate-email?prospect_id=${selectedProspectId}&context=${encodeURIComponent(
-              context,
-            )}`
-          : `http://localhost:8000/api/outreach/generate-linkedin?prospect_id=${selectedProspectId}&context=${encodeURIComponent(
-              context,
-            )}`;
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/outreach/generate-email?prospect_id=${selectedProspectId}&context=${encodeURIComponent(
+            context,
+          )}`
+          : `${process.env.NEXT_PUBLIC_API_URL}/api/outreach/generate-linkedin?prospect_id=${selectedProspectId}&context=${encodeURIComponent(
+            context,
+          )}`;
 
       const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json();
@@ -60,11 +60,10 @@ export default function OutreachView() {
               setMode("email");
               setResult(null);
             }}
-            className={`flex-1 py-2 rounded-lg font-medium ${
-              mode === "email"
+            className={`flex-1 py-2 rounded-lg font-medium ${mode === "email"
                 ? "bg-green-600 text-white"
                 : "bg-slate-700 text-slate-300"
-            }`}
+              }`}
           >
             Email Sequence
           </button>
@@ -73,11 +72,10 @@ export default function OutreachView() {
               setMode("linkedin");
               setResult(null);
             }}
-            className={`flex-1 py-2 rounded-lg font-medium ${
-              mode === "linkedin"
+            className={`flex-1 py-2 rounded-lg font-medium ${mode === "linkedin"
                 ? "bg-blue-600 text-white"
                 : "bg-slate-700 text-slate-300"
-            }`}
+              }`}
           >
             LinkedIn Message
           </button>

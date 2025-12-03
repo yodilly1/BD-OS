@@ -27,7 +27,7 @@ export default function ProspectorView() {
     }
 
     // Fetch companies for name mapping
-    fetch("http://localhost:8000/api/companies")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`)
       .then((res) => res.json())
       .then(setCompanies)
       .catch((err) => console.error("Failed to load companies:", err));
@@ -71,7 +71,7 @@ export default function ProspectorView() {
 
       // 1. Start Search Job
       const res = await fetch(
-        "http://localhost:8000/api/prospect/search-candidates",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/prospect/search-candidates`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -91,7 +91,7 @@ export default function ProspectorView() {
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(
-            `http://localhost:8000/api/jobs/${job_id}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/jobs/${job_id}`,
           );
           const job = await statusRes.json();
           console.log("Job Status:", job.status);
@@ -106,7 +106,7 @@ export default function ProspectorView() {
             setSelectedCandidates(allUrls);
             setLoading(false);
             // Refresh companies list
-            fetch("http://localhost:8000/api/companies")
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`)
               .then((res) => res.json())
               .then(setCompanies);
           } else if (job.status === "failed") {
@@ -135,7 +135,7 @@ export default function ProspectorView() {
       );
 
       const res = await fetch(
-        "http://localhost:8000/api/prospect/save-candidates",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/prospect/save-candidates`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -173,12 +173,12 @@ export default function ProspectorView() {
       ).value;
       const titles = titlesInput
         ? titlesInput
-            .split(",")
-            .map((t) => t.trim())
-            .filter((t) => t)
+          .split(",")
+          .map((t) => t.trim())
+          .filter((t) => t)
         : [];
 
-      const res = await fetch("http://localhost:8000/api/prospect/url-search", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prospect/url-search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,7 +198,7 @@ export default function ProspectorView() {
       setResults(data);
 
       // Refresh companies list
-      fetch("http://localhost:8000/api/companies")
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`)
         .then((res) => res.json())
         .then(setCompanies);
     } catch (error) {
@@ -391,7 +391,7 @@ export default function ProspectorView() {
             setLoading(true);
             try {
               const res = await fetch(
-                "http://localhost:8000/api/prospect/manual-add",
+                `${process.env.NEXT_PUBLIC_API_URL}/api/prospect/manual-add`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },

@@ -20,9 +20,9 @@ export default function ContactsView() {
     setLoading(true);
     try {
       const [compRes, prospRes] = await Promise.all([
-        fetch("http://localhost:8000/api/companies"),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`),
         fetch(
-          `http://localhost:8000/api/prospects?sort_by=${sortBy}&search=${searchTerm}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/prospects?sort_by=${sortBy}&search=${searchTerm}`,
         ),
       ]);
       setCompanies(await compRes.json());
@@ -187,11 +187,10 @@ export default function ContactsView() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          prospect.status === "New"
+                        className={`px-2 py-1 rounded-full text-xs ${prospect.status === "New"
                             ? "bg-blue-900 text-blue-200"
                             : "bg-green-900 text-green-200"
-                        }`}
+                          }`}
                       >
                         {prospect.status}
                       </span>
