@@ -1,6 +1,15 @@
-# Vayu Company Context
-# This file stores the value proposition, differentiators, and description for Vayu.
-# It is used by the Outreach Agent to customize messages.
+import os
+
+class Settings:
+    LEADMAGIC_API_KEY: str = os.getenv("LEADMAGIC_API_KEY", "")
+    APOLLO_API_KEY: str = os.getenv("APOLLO_API_KEY", "")
+    
+    # Vayu Context
+    VAYU_VALUE_PROP: str = "We help companies automate their BDR workflows with AI."
+    VAYU_DIFFERENTIATORS: str = "Deep prospecting, context-aware outreach, and continuous learning."
+    VAYU_DESCRIPTION: str = "Vayu is an AI-powered BDR that works 24/7."
+
+settings = Settings()
 
 VAYU_CONTEXT = {
     "name": "Vayu",
