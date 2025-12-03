@@ -39,7 +39,7 @@ async def test_url_search():
                 print(f"✅ PASSED (Found {len(data)} prospects)")
                 return True
             else:
-                print(f"⚠️ PASSED but found 0 prospects (Check LeadMagic key?)")
+                print("⚠️ PASSED but found 0 prospects (Check LeadMagic key?)")
                 return True
         except Exception as e:
             print(f"❌ FAILED (Error: {e})")

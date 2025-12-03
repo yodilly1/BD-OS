@@ -1,11 +1,10 @@
 import asyncio
 
-from sqlmodel import Session, delete, select
+from sqlmodel import Session, select
 
 from app.agents.outreach import OutreachAgent
 from app.agents.prospector import ProspectorAgent
 from app.db import create_db_and_tables, engine
-from app.models.company import Company
 from app.models.prospect import Prospect
 
 

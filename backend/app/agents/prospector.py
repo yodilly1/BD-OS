@@ -1,6 +1,5 @@
 import asyncio
 import json
-import re
 from typing import List
 
 from sqlmodel import Session, select
@@ -256,8 +255,9 @@ class ProspectorAgent:
                         }
 
                     # Otherwise find it (for generic search)
-                    first_name, last_name = emp.get("first_name", ""), emp.get(
-                        "last_name", ""
+                    first_name, last_name = (
+                        emp.get("first_name", ""),
+                        emp.get("last_name", ""),
                     )
                     serper_data = await self._find_linkedin_url(
                         first_name, last_name, company.name

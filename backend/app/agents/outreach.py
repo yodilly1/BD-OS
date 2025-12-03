@@ -36,23 +36,23 @@ class OutreachAgent:
             if company:
                 company_context = f"""
                 Company: {company.name}
-                Industry: {company.industry or 'Unknown'}
-                Size: {company.employees_count or 'Unknown'}
-                Location: {company.location or 'Unknown'}
-                Description: {company.description or 'No description available'}
-                Tech Stack: {company.tech_stack or 'Unknown'}
-                Recent News: {company.news_snippets or 'No recent news'}
+                Industry: {company.industry or "Unknown"}
+                Size: {company.employees_count or "Unknown"}
+                Location: {company.location or "Unknown"}
+                Description: {company.description or "No description available"}
+                Tech Stack: {company.tech_stack or "Unknown"}
+                Recent News: {company.news_snippets or "No recent news"}
                 """
 
             # 1. Draft with Claude
             system_prompt = f"""
-            You are a world-class BDR copywriter for {VAYU_CONTEXT['name']}.
-            {VAYU_CONTEXT['description']}
+            You are a world-class BDR copywriter for {VAYU_CONTEXT["name"]}.
+            {VAYU_CONTEXT["description"]}
 
-            Your Value Prop: {VAYU_CONTEXT['value_proposition']}
-            Key Differentiators: {', '.join(VAYU_CONTEXT['differentiators'])}
-            Target Audience: {VAYU_CONTEXT['target_audience']}
-            Tone: {VAYU_CONTEXT['tone']}
+            Your Value Prop: {VAYU_CONTEXT["value_proposition"]}
+            Key Differentiators: {", ".join(VAYU_CONTEXT["differentiators"])}
+            Target Audience: {VAYU_CONTEXT["target_audience"]}
+            Tone: {VAYU_CONTEXT["tone"]}
 
             Write concise, personalized, and effective cold emails that reference specific company details.
             """
@@ -64,7 +64,7 @@ class OutreachAgent:
             PROSPECT INFORMATION:
             Name: {prospect.first_name} {prospect.last_name}
             Title: {prospect.title}
-            Pain Points: {prospect.pain_points or 'Unknown'}
+            Pain Points: {prospect.pain_points or "Unknown"}
 
             COMPANY INFORMATION:
             {company_context}
@@ -133,7 +133,7 @@ class OutreachAgent:
                 company_info += f". Recent: {company.news_snippets[:100]}"
 
             system_prompt = f"""
-            You are a LinkedIn networking expert for {VAYU_CONTEXT['name']}.
+            You are a LinkedIn networking expert for {VAYU_CONTEXT["name"]}.
             Write short, casual, and value-add messages that reference specific company details.
             """
 

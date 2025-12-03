@@ -6,12 +6,11 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.agents.outreach import OutreachAgent
 from app.agents.prospector import ProspectorAgent
 from app.db import create_db_and_tables, engine
-from app.models.company import Company
 from app.models.prospect import Prospect
 
 # Force load env vars

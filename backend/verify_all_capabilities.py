@@ -1,15 +1,11 @@
 import asyncio
-import os
 
-from sqlmodel import Session, select
 
 from app.agents.coach import CoachAgent
 from app.agents.outreach import OutreachAgent
 from app.agents.prospector import ProspectorAgent
 from app.agents.researcher import ResearcherAgent
-from app.db import create_db_and_tables, engine
-from app.models.company import Company
-from app.models.prospect import Prospect
+from app.db import create_db_and_tables
 
 
 async def main():
@@ -75,7 +71,7 @@ async def main():
     try:
         feedback = await coach.analyze_call_transcript(transcript)
         if feedback and feedback.content:
-            print(f"✅ Coach Success: Analyzed Transcript")
+            print("✅ Coach Success: Analyzed Transcript")
             print(f"   Feedback: {feedback.content[:50]}...")
         else:
             print("❌ Coach Failed: No feedback generated.")

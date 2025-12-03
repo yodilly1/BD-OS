@@ -168,7 +168,7 @@ class LeadMagicClient:
                         "company": data.get("company_name"),
                     }
                 return {}
-            except Exception as e:
+            except Exception:
                 # print(f"[LeadMagic] Error finding role {role}: {e}")
                 return {}
 

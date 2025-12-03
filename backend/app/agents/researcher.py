@@ -169,10 +169,10 @@ class ResearcherAgent:
         prompt = f"""
         You are a BDR Researcher. Infer the likely pain points and summary for this prospect.
 
-        Prospect: {prospect_data['first_name']} {prospect_data['last_name']}
-        Title: {prospect_data['title']}
-        Company: {company_data.get('name', 'Unknown')}
-        Company Description: {company_data.get('description', 'Unknown')}
+        Prospect: {prospect_data["first_name"]} {prospect_data["last_name"]}
+        Title: {prospect_data["title"]}
+        Company: {company_data.get("name", "Unknown")}
+        Company Description: {company_data.get("description", "Unknown")}
 
         Return a JSON object with keys:
         - summary (professional summary inference based on their title and company)

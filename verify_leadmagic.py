@@ -12,7 +12,7 @@ BASE_URL = "https://api.leadmagic.io"
 
 
 async def test_profile_search():
-    print(f"\n--- Testing Profile Search ---")
+    print("\n--- Testing Profile Search ---")
     url = f"{BASE_URL}/v1/people/profile-search"
     headers = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
     payload = {
@@ -27,14 +27,14 @@ async def test_profile_search():
             try:
                 data = response.json()
                 print(f"Response Data: {json.dumps(data, indent=2)}")
-            except:
+            except json.JSONDecodeError:
                 print(f"Raw Response: {response.text}")
         except Exception as e:
             print(f"Error: {e}")
 
 
 async def test_mobile_finder():
-    print(f"\n--- Testing Mobile Finder ---")
+    print("\n--- Testing Mobile Finder ---")
     url = f"{BASE_URL}/v1/people/mobile-finder"
     headers = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
     # Use Alex Small's profile URL from previous test
@@ -48,14 +48,14 @@ async def test_mobile_finder():
             try:
                 data = response.json()
                 print(f"Response Data: {json.dumps(data, indent=2)}")
-            except:
+            except json.JSONDecodeError:
                 print(f"Raw Response: {response.text}")
         except Exception as e:
             print(f"Error: {e}")
 
 
 async def test_email_finder():
-    print(f"\n--- Testing Email to Profile ---")
+    print("\n--- Testing Email to Profile ---")
     # Use a known email (e.g., from documentation or a common pattern)
     # Let's try to find Jesse Ouellette as per docs example
     work_email = "jesse@leadmagic.io"
@@ -72,14 +72,14 @@ async def test_email_finder():
             try:
                 data = response.json()
                 print(f"Response Data: {json.dumps(data, indent=2)}")
-            except:
+            except json.JSONDecodeError:
                 print(f"Raw Response: {response.text}")
         except Exception as e:
             print(f"Error: {e}")
 
 
 async def test_job_change():
-    print(f"\n--- Testing Job Change Detector ---")
+    print("\n--- Testing Job Change Detector ---")
     url = f"{BASE_URL}/v1/people/job-change-detector"
     headers = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
     # Test Jesse Ouellette (Founder of LeadMagic) checking if he works at "Smartlead" (Expect: NEVER_WORKED_THERE or similar)
@@ -96,7 +96,7 @@ async def test_job_change():
             try:
                 data = response.json()
                 print(f"Response Data: {json.dumps(data, indent=2)}")
-            except:
+            except json.JSONDecodeError:
                 print(f"Raw Response: {response.text}")
         except Exception as e:
             print(f"Error: {e}")
