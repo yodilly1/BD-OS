@@ -106,7 +106,27 @@ class ResearcherAgent:
                 print("Researcher: Found email via Apollo!")
                 prospect.email = apollo_data.get("email")
                 prospect.linkedin_url = apollo_data.get("linkedin_url") or prospect.linkedin_url
-                # Save Apollo data
+                prospect.title = apollo_data.get("title") or prospect.title
+                prospect.phone = apollo_data.get("phone_numbers", [{}])[0].get("sanitized_number") if apollo_data.get("phone_numbers") else None
+                # Also try direct phone field if phone_numbers list is empty/different structure
+                if not prospect.phone:
+                    prospect.phone = apollo_data.get("phone") or prospect.phone
+                
+                # If phone is still missing, try LeadMagic Mobile Finder
+                if not prospect.phone and prospect.linkedin_url:
+                    print("Researcher: Phone missing from Apollo. Trying LeadMagic Mobile Finder...")
+                    try:
+                        lm_phone = await self.leadmagic.find_mobile_number(
+                            linkedin_url=prospect.linkedin_url,
+                            work_email=prospect.email
+                        )
+                        if lm_phone:
+                            print(f"Researcher: Found phone via LeadMagic: {lm_phone}")
+                            prospect.phone = lm_phone
+                    except Exception as e:
+                        print(f"Researcher: Error fetching LeadMagic phone: {e}")
+
+                # Save Apollo/LeadMagic data
                 session.add(prospect)
                 session.commit()
                 session.refresh(prospect)
