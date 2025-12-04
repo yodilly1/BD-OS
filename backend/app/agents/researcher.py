@@ -180,5 +180,18 @@ class ResearcherAgent:
                 cleaned_response = response_text.replace("```json", "").replace("```", "").strip()
                 data = json.loads(cleaned_response)
                 
+                prospect.summary = data.get("summary")
+                pain_points = data.get("pain_points")
+                if isinstance(pain_points, list):
+                    prospect.pain_points = "\n- ".join(pain_points)
+                else:
+                    prospect.pain_points = pain_points
+                
+                session.add(prospect)
+                session.commit()
+                session.refresh(prospect)
+            except Exception as e:
+                print(f"Error enriching prospect with AI: {e}")
+                
             session.expunge(prospect)
             return prospect
