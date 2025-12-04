@@ -1,3 +1,13 @@
+import json
+from sqlmodel import Session
+from app.db import engine
+from app.models.company import Company
+from app.models.prospect import Prospect
+from app.tools.gemini_client import GeminiClient
+from app.tools.leadmagic_client import LeadMagicClient
+from app.tools.serper_client import SerperClient
+from app.tools.apollo_client import ApolloClient
+
 class ResearcherAgent:
     def __init__(self):
         self.serper = SerperClient()
