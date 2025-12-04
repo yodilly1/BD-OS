@@ -1,13 +1,3 @@
-import json
-from sqlmodel import Session
-from app.db import engine
-from app.models.company import Company
-from app.models.prospect import Prospect
-from app.tools.gemini_client import GeminiClient
-from app.tools.leadmagic_client import LeadMagicClient
-from app.tools.serper_client import SerperClient
-from app.tools.apollo_client import ApolloClient
-
 class ResearcherAgent:
     def __init__(self):
         self.serper = SerperClient()
@@ -190,18 +180,5 @@ class ResearcherAgent:
                 cleaned_response = response_text.replace("```json", "").replace("```", "").strip()
                 data = json.loads(cleaned_response)
                 
-                prospect.summary = data.get("summary")
-                pain_points = data.get("pain_points")
-                if isinstance(pain_points, list):
-                    prospect.pain_points = "\n- ".join(pain_points)
-                else:
-                    prospect.pain_points = pain_points
-                
-                session.add(prospect)
-                session.commit()
-                session.refresh(prospect)
-            except Exception as e:
-                print(f"Error enriching prospect with AI: {e}")
-
             session.expunge(prospect)
             return prospect
