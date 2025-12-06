@@ -1,7 +1,9 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
 from datetime import datetime
 from enum import Enum
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
 
 class InteractionType(str, Enum):
     EMAIL_DRAFT = "email_draft"
@@ -9,11 +11,12 @@ class InteractionType(str, Enum):
     CALL_SCRIPT = "call_script"
     COACHING_FEEDBACK = "coaching_feedback"
 
+
 class Interaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     type: InteractionType
     content: str
     created_at: datetime = Field(default_factory=datetime.now)
     prospect_id: Optional[int] = Field(default=None, foreign_key="prospect.id")
-    status: str = "draft" # draft, sent, reviewed
+    status: str = "draft"  # draft, sent, reviewed
     feedback: Optional[str] = None
